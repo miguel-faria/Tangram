@@ -12,9 +12,11 @@ namespace Tangram{
         private bool _just_errored = false;
         private bool _just_moved = false;
         private bool _collided = false;
+        private bool _position_changed = false;
 		//private GameObject _last_object_touched = null;
         private GameObject _last_object_collided = null;
 		private Vector2 _final_movement_pos;
+        private Vector3 _new_piece_position;
         private AudioSource _sound_source;
 		
         //public Transform _edge_particles;
@@ -89,7 +91,24 @@ namespace Tangram{
                     _collided = false;
                 }
 
-			}
+			} else if(_position_changed) {
+
+                //transform.position = Vector3.MoveTowards(transform.position, _new_piece_position, 0.05f);
+                transform.position = Vector3.MoveTowards(transform.position, _new_piece_position, 5*Time.deltaTime);
+                if (Vector3.Distance(transform.position, _new_piece_position) < 0.05f) {
+                    Transform piece_solution = GameObject.Find("Solution").transform.Find("socket_" + gameObject.name);
+                    transform.position = _new_piece_position;
+                    transform.rotation = piece_solution.rotation;
+                    piece_status = (int)Piece_States.LOCKED;
+                    piece_solution.GetComponent<PolygonCollider2D>().enabled = false;
+                    GetComponent<PolygonCollider2D>().enabled = false;
+                    GetComponent<Renderer>().sortingOrder = -1;
+                    //Instantiate(_edge_particles, other.gameObject.transform.position, _edge_particles.rotation);
+                    _sound_source.PlayOneShot(_placed_audio, 1.0f);
+                    PuzzleManager.Instance.piece_placed(gameObject.name);
+                    _position_changed = false;
+                }
+            }
 
 		}
 
@@ -154,7 +173,7 @@ namespace Tangram{
 		void OnMouseDown(){
 	        if(_unlocked){
 				if ((piece_status != (int)Piece_States.LOCKED) && Input.GetMouseButtonDown (0)){
-					piece_status = (int)Piece_States.PICKED;
+                    piece_status = (int)Piece_States.PICKED;
 					GetComponent<Renderer> ().sortingOrder = 10;
 					//PuzzleManager.Instance.control_piece_timer (false);
 					_piece_cliked = true;
@@ -184,6 +203,14 @@ namespace Tangram{
 		public void unlock_piece(){
 			_unlocked = true;
 		}
+
+        public void set_position_change(bool change) {
+            _position_changed = change;
+        }
+
+        public void piece_position(Vector3 new_position) {
+            _new_piece_position = new_position;
+        }
 			
 	}
 }

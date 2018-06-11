@@ -27,7 +27,6 @@ namespace Tangram{
         public static int difficulty_name_to_val(string difficulty_name) {
             return (int)Enum.Parse(typeof(Difficulty_Levels), difficulty_name.ToUpper());
         }
-
     }
 
 	public static class Constants {

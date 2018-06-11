@@ -6,7 +6,11 @@ using System.Text;
 namespace Tangram.GameModes {
     public interface GameMode {
 
-        void Manage_Game();
+        void robot_turn();
+
+        void player_turn();
+
+        void update_turn_info(string player, string piece);
 
     }
 }

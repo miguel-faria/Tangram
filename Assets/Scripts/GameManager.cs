@@ -4,31 +4,40 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace Tangram{
 
 	public class GameManager : MonoBehaviour {
 
 		private string _parameters_text_file = "params_file.txt";
-        private string _child_name = "Miguel";
-        private string _unlocked_piece = "";
+        private string _current_piece_name = "";
+        private string _current_player = "";
 		private DateTime _puzzle_over;
-		private bool _puzzle_finished = false;
+        private int _n_turns = 0;
+        private bool _change_turn = false;
+        private bool _first_turn = false;
+        private bool _puzzle_finished = false;
 		private bool _unlock_puzzle_pieces = false;
 		private bool _game_started = false;
         private bool _started_logging = false;
+        private List<string> _playing_order = new List<string>();
+        private System.Random rand_generator = new System.Random();
 
         //private static PuzzleLogger _logger = null;
-		private static GameManager _instance = null;
-		public static GameManager Instance { get { return _instance; } }
+        private static GameManager _instance = null;
+        private static GameModes.GameMode _game_mode = null;
+        public static GameManager Instance { get { return _instance; } }
+        //public static GameModes.GameMode PlayMode { get { return _} }
 
 		//Basic Game Settings
 		private static int _difficulty_level = (int)Difficulty_Levels.EASY;
         private static string _puzzle = "square";
         private static string _play_mode = "regular";
         private static bool _rotation = false;
+        private static bool _robot = true;
         private static int _n_players = 1;
-        private static List<string> _player_names;
+        private static List<string> _player_names = new List<string>(new string[] { "Miguel" });
 
 		// Use this for initialization
 		void Start () {
@@ -54,8 +63,89 @@ namespace Tangram{
 
 		}
 
-		/*void Awake(){
+        void OnEnable() {
 
+            SceneManager.sceneLoaded += OnSceneLoaded;
+
+        }
+
+        void OnSceneLoaded(Scene scene, LoadSceneMode mode) {
+            if(scene.name.Contains("level")) {
+                switch (_play_mode) {
+                    case "regular":
+                        _game_mode = new GameModes.RegularMode(_rotation, GameObject.Find("Pieces"), GameObject.Find("Solution"));
+                        _game_started = true;
+                        _playing_order = new List<string>();
+                        if (_n_players > 1) {
+                            List<string> names = new List<string>(_player_names);
+                            int idx;
+                            if (_robot)
+                                names.Add("robot");
+
+                            while (names.Count > 0) {
+                                idx = rand_generator.Next(0, names.Count - 1);
+                                _playing_order.Add(names[idx]);
+                                names.RemoveAt(idx);
+                            }
+                        }
+                        else {
+                            if (_robot) {
+                                if (rand_generator.Next(0, 1) > 0) {
+                                    _playing_order.Add("robot");
+                                    _playing_order.Add(_player_names[0]);
+                                }
+                                else {
+                                    _playing_order.Add(_player_names[0]);
+                                    _playing_order.Add("robot");
+                                }
+                            }
+                            else
+                                _playing_order.Add(_player_names[0]);
+                        }
+
+                        _game_started = true;
+                        _first_turn = true;
+                        break;
+                }
+            }
+        }
+
+
+        /*void Awake(){
+            if (SceneManager.GetActiveScene().name.Contains("level")) {
+                switch (_play_mode) {
+                    case "regular":
+                        _game_mode = new GameModes.RegularMode(_rotation, GameObject.Find("Pieces"), GameObject.Find("Solution"));
+                        _game_started = true;
+                        _playing_order = new List<string>();
+                        if (_n_players > 1) {
+                            List<string> names = new List<string>(_player_names);
+                            int idx;
+                            if (_robot)
+                                names.Add("robot");
+
+                            while (names.Count > 0) {
+                                idx = rand_generator.Next(0, names.Count - 1);
+                                _playing_order.Add(names[idx]);
+                                names.RemoveAt(idx);
+                            }
+                        } else {
+                            if (_robot) {
+                                if (rand_generator.Next(0, 1) > 0) {
+                                    _playing_order.Add("robot");
+                                    _playing_order.Add(_player_names[0]);
+                                } else {
+                                    _playing_order.Add(_player_names[0]);
+                                    _playing_order.Add("robot");
+                                }
+                            } else
+                                _playing_order.Add(_player_names[0]);
+                        }
+
+                        _game_started = true;
+                        break;
+                }
+            }
 		}*/
 
 		// Update is called once per frame
@@ -65,7 +155,35 @@ namespace Tangram{
 				Screen.orientation = ScreenOrientation.LandscapeRight;
 			else
 				Screen.orientation = ScreenOrientation.LandscapeLeft;
+            
+            if (_game_started && !_puzzle_finished && (PuzzleManager.Instance.get_remaining_pieces().Count > 0)) {
+                
+                if (_first_turn || _change_turn) {
+                    if (_change_turn) {
+                        _n_turns++;
+                        _change_turn = false;
+                        _current_player = _playing_order[_n_turns % _playing_order.Count];
+                    } else { 
+                        _current_player = _playing_order[0];
+                        _first_turn = false;
+                    }
+                    if (_current_player.Contains("robot")) {
+                        lock_pieces();
+                        _current_piece_name = new List<string>(PuzzleManager.Instance.get_remaining_pieces().Keys)[rand_generator.Next(0, PuzzleManager.Instance.get_remaining_pieces().Count)];
+                    } else {
+                        unlock_pieces();
+                        _current_piece_name = "";
+                    }
+                    _game_mode.update_turn_info(_current_player, _current_piece_name);
+                }
 
+                if (_current_player.Contains("robot"))
+                    _game_mode.robot_turn();
+                else
+                    _game_mode.player_turn();
+            } else if (_puzzle_finished && ((DateTime.Now - _puzzle_over).TotalSeconds > 1.0f)) {
+                quit_game();
+            }
             
         }
 
@@ -83,7 +201,7 @@ namespace Tangram{
 						line = file_reader.ReadLine();
 						if(line != null){
 							words = line.Split(new[] {':', ',', '-', '=', ' '}, StringSplitOptions.RemoveEmptyEntries);
-                            bool correct_parse = false;
+                            //bool correct_parse = false;
 
 							switch(words[0]){
 
@@ -159,14 +277,14 @@ namespace Tangram{
 
 						case "-puzzle":
                             if (arg_value.GetType().Equals(typeof(string))) {
-                                if (arg_value == "tangram") { 
+                                if (arg_value.ToLower() == "tangram") { 
                                     _puzzle = "square";
                                 } else if (arg_value == "") {
                                     System.Random r = new System.Random();
                                     Array vals = Enum.GetValues(typeof(Level_Names));
                                     _puzzle = Util_Methods.level_val_to_name(r.Next((int)vals.GetValue(0), (int)vals.GetValue(vals.Length - 1)));
                                 } else
-                                    _puzzle = arg_value;
+                                    _puzzle = arg_value.ToLower();
                             }
                             else if (arg_value.GetType().Equals(typeof(int))) {
                                 int level;
@@ -182,8 +300,15 @@ namespace Tangram{
                             }
                             break;
 
+                        case "-robot":
+                            if (arg_value.ToLower().Contains("true"))
+                                _robot = true;
+                            else
+                                _robot = false;
+                            break;
+                        
                         case "-game_mode":
-                            
+                            _play_mode = arg_value.ToLower();
                             break;
 
                         case "-rotation":
@@ -197,7 +322,7 @@ namespace Tangram{
                             correct_parse = Int32.TryParse(arg_value, out _n_players);
                             if (!correct_parse) {
                                 _n_players = 1;
-                                _player_names.Add(command_args[i + 2]);
+                                _player_names.Add(command_args[i + 2].ToLower());
                                 Debug.LogError("Invalid number of players, considering only 1 player.");
                             }else {
                                 for(int j = 0; j < _n_players; j++) {
@@ -238,17 +363,25 @@ namespace Tangram{
             try { 
 
                 Debug.Log ("Change Scene");
-			    string current_scene = Application.loadedLevelName;
-                string next_scene = "level_select";
-                bool clean_up = false;
-                GameObject obj = null;
-                
-			    Application.LoadLevel(next_scene);
-                
-                if (clean_up)
-                    DestroyObject (obj);
+			    string current_scene = SceneManager.GetActiveScene().name;
+                string next_scene = "level_square";
+                //bool clean_up = false;
+                //GameObject obj = null;
 
-                Debug.Log("Scene Changed");
+                if (current_scene.Contains("start"))
+                    if (_puzzle != "")
+                        next_scene = "level_" + _puzzle;
+                    else
+                        next_scene = "level_square";
+                else if (current_scene.Contains("level"))
+                    next_scene = "start";
+
+                SceneManager.LoadScene(next_scene);
+
+                /*if (clean_up)
+                    DestroyObject (obj);*/
+
+                //Debug.Log("Scene Changed");
 
             } catch (Exception e) {
                 Debug.LogError ("Caught Error changing scene: " + e.Message);
@@ -260,21 +393,30 @@ namespace Tangram{
             change_scene ( );
 
         }
-
+        
 		public void puzzle_finish() {
 			_puzzle_over = DateTime.Now;
 			_puzzle_finished = true;
 		}
 
-        private void lock_pieces()
-        {
-            GameObject pieces = PuzzleManager.Instance.get_pieces();
-            for (int i = 0; i < PuzzleManager.Instance.get_n_pieces(); i++)
-            {
-                GameObject piece = pieces.transform.GetChild(i).gameObject;
-                if (piece.name != _unlocked_piece)
-                    piece.GetComponent<MovePiece>().lock_piece();
+        private void lock_pieces() {
+            Dictionary<string, GameObject> pieces_left = PuzzleManager.Instance.get_remaining_pieces();
+            foreach (string piece_name in pieces_left.Keys) {
+                pieces_left[piece_name].GetComponent<MovePiece>().lock_piece();
+                pieces_left[piece_name].GetComponent<SpriteRenderer>().color = new Color(1.0f, 1.0f, 1.0f, 0.25f);
             }
+        }
+
+        private void unlock_pieces() {
+            Dictionary<string, GameObject> pieces_left = PuzzleManager.Instance.get_remaining_pieces();
+            foreach (string piece_name in pieces_left.Keys) {
+                pieces_left[piece_name].GetComponent<MovePiece>().unlock_piece();
+                pieces_left[piece_name].GetComponent<SpriteRenderer>().color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
+            }
+        }
+
+        public GameModes.GameMode get_playing_mode() {
+            return _game_mode;
         }
 
 		public bool unlock_puzzle_pieces(){
@@ -297,14 +439,6 @@ namespace Tangram{
 			_game_started = false;
 		}
         
-        public void change_child_name (string name) {
-            _child_name = name;
-        }
-
-        public string get_child_name (string name) {
-            return _child_name;
-        }
-
         /*public void start_logging ( ) {
 
             if(_logger == null){
@@ -325,5 +459,9 @@ namespace Tangram{
        /*public PuzzleLogger get_logger ( ) {
             return _logger;
         }*/
+
+        public void set_turn_change(bool value) {
+            _change_turn = value;
+        }
 	}
 }

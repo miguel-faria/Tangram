@@ -19,8 +19,10 @@ namespace Tangram{
         private bool _rotation = false;
 	    private Dictionary<string, List<Vector3>> _pieces_pos;
 	    private GameObject _pieces;
+        private Dictionary<string, GameObject> _pieces_left;
+        private Dictionary<string, GameObject> _pieces_solution;
 
-		private static PuzzleManager instance = null;
+        private static PuzzleManager instance = null;
 		public static PuzzleManager Instance { get { return instance; } }
 	    
 		// Use this for initialization
@@ -37,7 +39,10 @@ namespace Tangram{
             //_pieces_pos = Constants.PTRS_POS[GameManager.Instance.get_difficulty_level ( )];
             _pieces_pos = Constants.PTRS_POS[_puzzle_image];
             _pieces = GameObject.Find("Pieces");
-			GameObject piece;
+            _pieces_left = new Dictionary<string, GameObject>();
+            _pieces_solution = new Dictionary<string, GameObject>();
+            GameObject solution = GameObject.Find("Solution");
+            GameObject piece;
 			int n_pieces = _pieces.transform.childCount;
             string piece_name;
 			for (int idx = 0; idx < n_pieces; idx++) {
@@ -49,7 +54,8 @@ namespace Tangram{
                 else
                     piece.transform.eulerAngles = new Vector3(0, 0, 0);
 
-
+                _pieces_left.Add(piece_name, piece);
+                _pieces_solution.Add(piece_name, solution.transform.GetChild(idx).gameObject);
             }
 
 			_n_total_pieces = n_pieces;
@@ -75,13 +81,16 @@ namespace Tangram{
 	        if (!_fireworks_fired) {
 	            Debug.Log("Puzzle Done!!!");
 	            _fireworks_fired = true;
+                GameManager.Instance.puzzle_finish();
                 //GameManager.Instance.get_logger ( ).write_log_line ("Puzzle Done!");
 	        }
 	    }
 
 	    public void piece_placed(string piece_name) {
 	        _placed_pieces += 1;
-            Debug.Log("Placed piece: " + piece_name + " Remaining: " + (_n_total_pieces - _placed_pieces));
+            _pieces_left.Remove(piece_name);
+            GameManager.Instance.set_turn_change(true);
+            //Debug.Log("Placed piece: " + piece_name + " Remaining: " + (_n_total_pieces - _placed_pieces));
         }
 
         public void new_error ( ) { 
@@ -104,5 +113,12 @@ namespace Tangram{
             _n_errors = errors;
         }
 
-	}
+        public Dictionary<string, GameObject> get_remaining_pieces() {
+            return _pieces_left;
+        }
+
+        public Dictionary<string, GameObject> get_solution_pieces() {
+            return _pieces_solution;
+        }
+    }
 }
