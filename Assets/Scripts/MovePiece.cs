@@ -13,11 +13,14 @@ namespace Tangram{
         private bool _just_moved = false;
         private bool _collided = false;
         private bool _position_changed = false;
+        private bool _rotation_changed = false;
 		//private GameObject _last_object_touched = null;
         private GameObject _last_object_collided = null;
 		private Vector2 _final_movement_pos;
         private Vector3 _new_piece_position;
+        private Quaternion _new_piece_rotation;
         private AudioSource _sound_source;
+        private RotatePiece _rotate_piece_ref;
 		
         //public Transform _edge_particles;
         public AudioClip _placed_audio;
@@ -26,72 +29,82 @@ namespace Tangram{
 		void Start () {
 
             _sound_source = GetComponent<AudioSource> ( );
+            _rotate_piece_ref = gameObject.GetComponentInChildren<RotatePiece>();
 
 		}
 		
 		// Update is called once per frame
 		void Update () {
 			if (_unlocked) {
-				/*if(Input.touchCount > 0) {
+                if (GameManager.Instance.play_with_rotation() && _rotate_piece_ref.need_rotate()) {
 
-					Touch touch = Input.GetTouch (0);
+                    transform.rotation = Quaternion.RotateTowards(transform.rotation, _new_piece_rotation, 50 * Time.deltaTime);
+                    //transform.rotation *= Quaternion.Euler(0, 0, 45);
+                    if (transform.rotation == _new_piece_rotation)
+                        _rotate_piece_ref.set_rotate(false);
 
-					switch(touch.phase){
+                } else { 
+				    /*if(Input.touchCount > 0) {
 
-					case TouchPhase.Began:
+					    Touch touch = Input.GetTouch (0);
 
-						RaycastHit2D hit = Physics2D.Raycast (Camera.main.ScreenToWorldPoint (Input.mousePosition), Vector2.zero);
+					    switch(touch.phase){
 
-						if (hit){
-							_last_object_touched = hit.collider.gameObject;
-							if((_last_object_touched == gameObject) && (piece_status == (int)Piece_States.IDLE) && (piece_status != (int)Piece_States.LOCKED)){
-								piece_status = (int)Piece_States.PICKED;
-								_final_movement_pos = new Vector2(Input.mousePosition.x, Input.mousePosition.y);
-								GetComponent<Renderer> ().sortingOrder = 10;
-								PuzzleManager.Instance.control_piece_timer (false);
-							}
-						}
+					    case TouchPhase.Began:
 
-						break;
+						    RaycastHit2D hit = Physics2D.Raycast (Camera.main.ScreenToWorldPoint (Input.mousePosition), Vector2.zero);
 
-					case TouchPhase.Moved:
+						    if (hit){
+							    _last_object_touched = hit.collider.gameObject;
+							    if((_last_object_touched == gameObject) && (piece_status == (int)Piece_States.IDLE) && (piece_status != (int)Piece_States.LOCKED)){
+								    piece_status = (int)Piece_States.PICKED;
+								    _final_movement_pos = new Vector2(Input.mousePosition.x, Input.mousePosition.y);
+								    GetComponent<Renderer> ().sortingOrder = 10;
+								    PuzzleManager.Instance.control_piece_timer (false);
+							    }
+						    }
 
-						if(_last_object_touched != null && gameObject == _last_object_touched && (piece_status != (int)Piece_States.LOCKED)){
-							_final_movement_pos = new Vector2(Input.mousePosition.x, Input.mousePosition.y);
-						}
+						    break;
 
-						break;
+					    case TouchPhase.Moved:
+
+						    if(_last_object_touched != null && gameObject == _last_object_touched && (piece_status != (int)Piece_States.LOCKED)){
+							    _final_movement_pos = new Vector2(Input.mousePosition.x, Input.mousePosition.y);
+						    }
+
+						    break;
 
 
-					case TouchPhase.Ended:
+					    case TouchPhase.Ended:
 
-						if(_last_object_touched != null && gameObject == _last_object_touched && (piece_status != (int)Piece_States.LOCKED)){
-							_final_movement_pos = new Vector2(Input.mousePosition.x, Input.mousePosition.y);
-							piece_status = (int)Piece_States.IDLE;
-							GetComponent<Renderer> ().sortingOrder = 0;
-							PuzzleManager.Instance.control_piece_timer (true);
-						}
+						    if(_last_object_touched != null && gameObject == _last_object_touched && (piece_status != (int)Piece_States.LOCKED)){
+							    _final_movement_pos = new Vector2(Input.mousePosition.x, Input.mousePosition.y);
+							    piece_status = (int)Piece_States.IDLE;
+							    GetComponent<Renderer> ().sortingOrder = 0;
+							    PuzzleManager.Instance.control_piece_timer (true);
+						    }
 
-						break;
-					}
+						    break;
+					    }
 
-				}else {*/
-				if (_piece_cliked)
-					_final_movement_pos = new Vector2(Input.mousePosition.x, Input.mousePosition.y);
-				//}
+				    }else {*/
+				    if (_piece_cliked)
+					    _final_movement_pos = new Vector2(Input.mousePosition.x, Input.mousePosition.y);
+				    //}
 
-				if (piece_status == (int)Piece_States.PICKED) {
-					Vector2 obj_pos = Camera.main.ScreenToWorldPoint (_final_movement_pos);
-					transform.position = obj_pos;
-				}
+				    if (piece_status == (int)Piece_States.PICKED) {
+					    Vector2 obj_pos = Camera.main.ScreenToWorldPoint (_final_movement_pos);
+					    transform.position = obj_pos;
+				    }
 
-                if(_just_moved && !_collided){
-                    _just_errored = false;
-                    _just_moved = false;
-                    _collided = false;
+                    if(_just_moved && !_collided){
+                        _just_errored = false;
+                        _just_moved = false;
+                        _collided = false;
+                    }
                 }
 
-			} else if(_position_changed) {
+            } else if(_position_changed) {
 
                 //transform.position = Vector3.MoveTowards(transform.position, _new_piece_position, 0.05f);
                 transform.position = Vector3.MoveTowards(transform.position, _new_piece_position, 5*Time.deltaTime);
@@ -103,11 +116,22 @@ namespace Tangram{
                     piece_solution.GetComponent<PolygonCollider2D>().enabled = false;
                     GetComponent<PolygonCollider2D>().enabled = false;
                     GetComponent<Renderer>().sortingOrder = -1;
+                    transform.GetChild(0).gameObject.SetActive(false);
                     //Instantiate(_edge_particles, other.gameObject.transform.position, _edge_particles.rotation);
                     _sound_source.PlayOneShot(_placed_audio, 1.0f);
                     PuzzleManager.Instance.piece_placed(gameObject.name);
-                    _position_changed = false;
                 }
+                _position_changed = false;
+
+            } else if (_rotation_changed) {
+
+                transform.rotation = Quaternion.RotateTowards(transform.rotation, _new_piece_rotation, 25 * Time.deltaTime);
+                transform.GetChild(0).gameObject.GetComponent<SpriteRenderer>().enabled = false;
+                if(transform.rotation == _new_piece_rotation) {
+                    transform.rotation = _new_piece_rotation;
+                }
+                _rotation_changed = false;
+
             }
 
 		}
@@ -128,6 +152,7 @@ namespace Tangram{
 				    other.GetComponent<PolygonCollider2D> ().enabled = false;
 				    GetComponent<PolygonCollider2D> ().enabled = false;
                     GetComponent<Renderer>().sortingOrder = -1;
+                    transform.GetChild(0).gameObject.SetActive(false);
                     //Instantiate(_edge_particles, other.gameObject.transform.position, _edge_particles.rotation);
                     _sound_source.PlayOneShot (_placed_audio, 1.0f);
 	                PuzzleManager.Instance.piece_placed(gameObject.name);
@@ -208,9 +233,17 @@ namespace Tangram{
             _position_changed = change;
         }
 
+        public void set_rotation_change(bool change) {
+            _rotation_changed = change;
+        }
+
         public void piece_position(Vector3 new_position) {
             _new_piece_position = new_position;
         }
 			
+        public void rotation_objective(Quaternion new_rotation) {
+            _new_piece_rotation = new_rotation;
+        }
+
 	}
 }

@@ -56,6 +56,7 @@
      <Compile Include="Assets\Scripts\GameManager.cs" />
      <Compile Include="Assets\Scripts\MovePiece.cs" />
      <Compile Include="Assets\Scripts\PuzzleManager.cs" />
+     <Compile Include="Assets\Scripts\RotatePiece.cs" />
      <Compile Include="Assets\Scripts\Utils.cs" />
  <Reference Include="UnityEngine.UI">
  <HintPath>C:/Program Files (x86)/Unity/Editor/Data/UnityExtensions/Unity/GUISystem/UnityEngine.UI.dll</HintPath>

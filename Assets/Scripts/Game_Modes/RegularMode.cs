@@ -8,7 +8,6 @@ namespace Tangram.GameModes {
     public class RegularMode : GameMode {
 
         private bool _rotation = false;
-        private int _n_players = 1;
         private int _turn_warning = 0;
         private string _current_player = "";
         private string _current_piece_name = "";
@@ -26,6 +25,9 @@ namespace Tangram.GameModes {
             } else {
                 if(!_rotation) 
                     move_piece();
+                else {
+                    rotate_move_piece();
+                }
             }
 
         }
@@ -48,9 +50,24 @@ namespace Tangram.GameModes {
             piece.GetComponent<SpriteRenderer>().color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
         }
 
+        private void rotate_piece() {
+            GameObject piece = PuzzleManager.Instance.get_remaining_pieces()[_current_piece_name];
+            GameObject piece_solution = PuzzleManager.Instance.get_solution_pieces()[_current_piece_name];
+
+            piece.GetComponent<MovePiece>().rotation_objective(piece_solution.transform.rotation);
+            piece.GetComponent<MovePiece>().set_rotation_change(true);
+            piece.GetComponent<SpriteRenderer>().color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
+        }
+
         private void rotate_move_piece() {
             GameObject piece = PuzzleManager.Instance.get_remaining_pieces()[_current_piece_name];
             GameObject piece_solution = PuzzleManager.Instance.get_solution_pieces()[_current_piece_name];
+
+            if (piece.transform.rotation == piece_solution.transform.rotation) {
+                move_piece();
+            } else {
+                rotate_piece();
+            }
 
         }
 

@@ -76,7 +76,9 @@ namespace Tangram{
                         _game_mode = new GameModes.RegularMode(_rotation, GameObject.Find("Pieces"), GameObject.Find("Solution"));
                         _game_started = true;
                         _playing_order = new List<string>();
-                        if (_n_players > 1) {
+                        if(_n_players == 0 && _robot) {
+                            _playing_order.Add("robot");
+                        } else  if (_n_players > 1) {
                             List<string> names = new List<string>(_player_names);
                             int idx;
                             if (_robot)
@@ -87,8 +89,7 @@ namespace Tangram{
                                 _playing_order.Add(names[idx]);
                                 names.RemoveAt(idx);
                             }
-                        }
-                        else {
+                        } else {
                             if (_robot) {
                                 if (rand_generator.Next(0, 1) > 0) {
                                     _playing_order.Add("robot");
@@ -462,6 +463,18 @@ namespace Tangram{
 
         public void set_turn_change(bool value) {
             _change_turn = value;
+        }
+
+        public bool play_with_rotation() {
+            return _rotation;
+        }
+
+        public int get_difficulty() {
+            return _difficulty_level;
+        }
+
+        public string get_puzzle() {
+            return _puzzle;
         }
 	}
 }

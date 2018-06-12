@@ -37,29 +37,35 @@ namespace Tangram{
 
             //Initialize pieces position
             //_pieces_pos = Constants.PTRS_POS[GameManager.Instance.get_difficulty_level ( )];
+            string level_name = GameManager.Instance.get_puzzle();
+            _level = Util_Methods.level_name_to_val(level_name);
             _pieces_pos = Constants.PTRS_POS[_puzzle_image];
             _pieces = GameObject.Find("Pieces");
             _pieces_left = new Dictionary<string, GameObject>();
             _pieces_solution = new Dictionary<string, GameObject>();
             GameObject solution = GameObject.Find("Solution");
-            GameObject piece;
-			int n_pieces = _pieces.transform.childCount;
-            string piece_name;
-			for (int idx = 0; idx < n_pieces; idx++) {
-				piece = _pieces.transform.GetChild(idx).gameObject;
-                piece_name = piece.gameObject.name;
-                piece.transform.position = _pieces_pos[piece_name][0];
-                if (!_rotation)
-                    piece.transform.eulerAngles = _pieces_pos[piece_name][1];
-                else
-                    piece.transform.eulerAngles = new Vector3(0, 0, 0);
+            int n_pieces = _pieces.transform.childCount;
 
-                _pieces_left.Add(piece_name, piece);
-                _pieces_solution.Add(piece_name, solution.transform.GetChild(idx).gameObject);
+            switch (GameManager.Instance.get_difficulty()) {
+
+                case (int)Difficulty_Levels.EASY:
+                    initialize_easy_level(n_pieces, solution);
+                    break;
+
+                case (int)Difficulty_Levels.MEDIUM:
+                    initialize_medium_level(n_pieces, solution);
+                    break;
+
+                case (int)Difficulty_Levels.HARD:
+                    initialize_hard_level(n_pieces, solution, level_name);
+                    break;
+
+                default:
+                    break;
+
             }
 
-			_n_total_pieces = n_pieces;
-
+            _n_total_pieces = n_pieces;
             //Locking pieces while game hasn't started;
             _n_errors = 0;
 			//lock_pieces ();
@@ -91,6 +97,83 @@ namespace Tangram{
             _pieces_left.Remove(piece_name);
             GameManager.Instance.set_turn_change(true);
             //Debug.Log("Placed piece: " + piece_name + " Remaining: " + (_n_total_pieces - _placed_pieces));
+        }
+
+        private void initialize_easy_level(int n_pieces, GameObject solution) {
+
+            GameObject piece;
+            string piece_name;
+
+            for (int idx = 0; idx < n_pieces; idx++) {
+                piece = _pieces.transform.GetChild(idx).gameObject;
+                piece_name = piece.gameObject.name;
+                piece.transform.position = _pieces_pos[piece_name][0];
+                if (!GameManager.Instance.play_with_rotation()) {
+                    piece.transform.eulerAngles = _pieces_pos[piece_name][1];
+                    piece.transform.GetChild(0).gameObject.SetActive(false);
+                }
+                else
+                    piece.transform.eulerAngles = new Vector3(0, 0, 0);
+
+                _pieces_left.Add(piece_name, piece);
+                _pieces_solution.Add(piece_name, solution.transform.GetChild(idx).gameObject);
+            }
+
+        }
+
+        private void initialize_medium_level(int n_pieces, GameObject solution) {
+
+            GameObject piece;
+            GameObject solution_piece;
+            string piece_name;
+
+            for (int idx = 0; idx < n_pieces; idx++) {
+                piece = _pieces.transform.GetChild(idx).gameObject;
+                solution_piece = solution.transform.GetChild(idx).gameObject;
+                piece_name = piece.gameObject.name;
+                piece.transform.position = _pieces_pos[piece_name][0];
+                if (!GameManager.Instance.play_with_rotation()) {
+                    piece.transform.eulerAngles = _pieces_pos[piece_name][1];
+                    piece.transform.GetChild(0).gameObject.SetActive(false);
+                }
+                else
+                    piece.transform.eulerAngles = new Vector3(0, 0, 0);
+
+                _pieces_left.Add(piece_name, piece);
+                _pieces_solution.Add(piece_name, solution_piece);
+                solution_piece.GetComponent<SpriteRenderer>().enabled = false;
+            }
+
+        }
+
+        private void initialize_hard_level(int n_pieces, GameObject solution, string level_name) {
+
+            GameObject piece;
+            GameObject solution_piece;
+            string piece_name;
+
+            Debug.Log(level_name);
+
+            SpriteRenderer spr = solution.transform.Find("skeleton").GetComponent<SpriteRenderer>();
+            spr.sprite = Resources.Load<Sprite>("Sprites/Puzzle_Skeletons/" + level_name + "_outline");
+
+            for (int idx = 0; idx < n_pieces; idx++) {
+                piece = _pieces.transform.GetChild(idx).gameObject;
+                solution_piece = solution.transform.GetChild(idx).gameObject;
+                piece_name = piece.gameObject.name;
+                piece.transform.position = _pieces_pos[piece_name][0];
+                if (!GameManager.Instance.play_with_rotation()) {
+                    piece.transform.eulerAngles = _pieces_pos[piece_name][1];
+                    piece.transform.GetChild(0).gameObject.SetActive(false);
+                }
+                else
+                    piece.transform.eulerAngles = new Vector3(0, 0, 0);
+
+                _pieces_left.Add(piece_name, piece);
+                _pieces_solution.Add(piece_name, solution_piece);
+                solution_piece.GetComponent<SpriteRenderer>().enabled = false;
+            }
+
         }
 
         public void new_error ( ) { 

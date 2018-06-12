@@ -39,7 +39,7 @@ namespace Tangram{
                                                                                                                         {"big_triangle_orange", new List<Vector3> {new Vector3 (-11.54f, -5.12f, 0.0f), new Vector3 (0, 0, 90)}},
                                                                                                                         {"medium_triangle_pink", new List<Vector3> {new Vector3 (14.38f, -5.47f, 0.0f), new Vector3 (0, 0, 45)}},
                                                                                                                         {"square_green", new List<Vector3> {new Vector3 (10.58f, 1.47f, 0.0f), new Vector3 (0, 0, 45)}},
-                                                                                                                        {"trapezoid_yellow", new List<Vector3> {new Vector3 (-17.29f, -1.92f, 0.0f), new Vector3 (0, 0, -90)}}};
+                                                                                                                        {"trapezoid_yellow", new List<Vector3> {new Vector3 (-14.89f, -0.6f, 0.0f), new Vector3 (0, 0, -90)}}};
 
         public static readonly Dictionary<string, List<Vector3>> PTRS_LEVEL_BOAT = new Dictionary<string, List<Vector3>> { {"little_triangle_red", new List<Vector3> {new Vector3 (17.52f, 2.92f, 0.0f), new Vector3 (0, 0, -90)}},
                                                                                                                         {"little_triangle_purple", new List<Vector3> {new Vector3 (13.38f, 7.66f, 0.0f), new Vector3 (0, 0, -180)}},
