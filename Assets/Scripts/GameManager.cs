@@ -32,7 +32,7 @@ namespace Tangram{
 
 		//Basic Game Settings
 		private static int _difficulty_level = (int)Difficulty_Levels.EASY;
-        private static string _puzzle = "square";
+        private static string _puzzle = "boat";
         private static string _play_mode = "regular";
         private static bool _rotation = false;
         private static bool _robot = true;

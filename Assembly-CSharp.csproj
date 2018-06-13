@@ -52,6 +52,7 @@
   </ItemGroup>
   <ItemGroup>
      <Compile Include="Assets\Scripts\Game_Modes\GameMode.cs" />
+     <Compile Include="Assets\Scripts\Game_Modes\HelpMode.cs" />
      <Compile Include="Assets\Scripts\Game_Modes\RegularMode.cs" />
      <Compile Include="Assets\Scripts\GameManager.cs" />
      <Compile Include="Assets\Scripts\MovePiece.cs" />

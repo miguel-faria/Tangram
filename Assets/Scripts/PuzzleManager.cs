@@ -38,6 +38,7 @@ namespace Tangram{
             //Initialize pieces position
             //_pieces_pos = Constants.PTRS_POS[GameManager.Instance.get_difficulty_level ( )];
             string level_name = GameManager.Instance.get_puzzle();
+            _puzzle_image = Util_Methods.level_name_to_val(level_name);
             _level = Util_Methods.level_name_to_val(level_name);
             _pieces_pos = Constants.PTRS_POS[_puzzle_image];
             _pieces = GameObject.Find("Pieces");
@@ -111,9 +112,12 @@ namespace Tangram{
                 if (!GameManager.Instance.play_with_rotation()) {
                     piece.transform.eulerAngles = _pieces_pos[piece_name][1];
                     piece.transform.GetChild(0).gameObject.SetActive(false);
+                } else {
+                    if (_level == (int)Level_Names.BOAT)
+                        piece.transform.eulerAngles = new Vector3(0, 180, 0);
+                    else
+                        piece.transform.eulerAngles = new Vector3(0, 0, 0);
                 }
-                else
-                    piece.transform.eulerAngles = new Vector3(0, 0, 0);
 
                 _pieces_left.Add(piece_name, piece);
                 _pieces_solution.Add(piece_name, solution.transform.GetChild(idx).gameObject);
@@ -136,8 +140,12 @@ namespace Tangram{
                     piece.transform.eulerAngles = _pieces_pos[piece_name][1];
                     piece.transform.GetChild(0).gameObject.SetActive(false);
                 }
-                else
-                    piece.transform.eulerAngles = new Vector3(0, 0, 0);
+                else {
+                    if (_level == (int)Level_Names.BOAT)
+                        piece.transform.eulerAngles = new Vector3(0, 180, 0);
+                    else
+                        piece.transform.eulerAngles = new Vector3(0, 0, 0);
+                }
 
                 _pieces_left.Add(piece_name, piece);
                 _pieces_solution.Add(piece_name, solution_piece);
@@ -166,8 +174,12 @@ namespace Tangram{
                     piece.transform.eulerAngles = _pieces_pos[piece_name][1];
                     piece.transform.GetChild(0).gameObject.SetActive(false);
                 }
-                else
-                    piece.transform.eulerAngles = new Vector3(0, 0, 0);
+                else {
+                    if (_level == (int)Level_Names.BOAT)
+                        piece.transform.eulerAngles = new Vector3(0, 180, 0);
+                    else
+                        piece.transform.eulerAngles = new Vector3(0, 0, 0);
+                }
 
                 _pieces_left.Add(piece_name, piece);
                 _pieces_solution.Add(piece_name, solution_piece);
