@@ -39,7 +39,6 @@ namespace Tangram{
                 if (GameManager.Instance.play_with_rotation() && _rotate_piece_ref.need_rotate()) {
 
                     transform.rotation = Quaternion.RotateTowards(transform.rotation, _new_piece_rotation, 50 * Time.deltaTime);
-                    //transform.rotation *= Quaternion.Euler(0, 0, 45);
                     if (transform.rotation == _new_piece_rotation)
                         _rotate_piece_ref.set_rotate(false);
 
@@ -106,20 +105,10 @@ namespace Tangram{
 
             } else if(_position_changed) {
 
-                //transform.position = Vector3.MoveTowards(transform.position, _new_piece_position, 0.05f);
                 transform.position = Vector3.MoveTowards(transform.position, _new_piece_position, 5*Time.deltaTime);
                 if (Vector3.Distance(transform.position, _new_piece_position) < 0.05f) {
                     Transform piece_solution = GameObject.Find("Solution").transform.Find("socket_" + gameObject.name);
-                    transform.position = _new_piece_position;
-                    transform.rotation = piece_solution.rotation;
-                    piece_status = (int)Piece_States.LOCKED;
-                    piece_solution.GetComponent<PolygonCollider2D>().enabled = false;
-                    GetComponent<PolygonCollider2D>().enabled = false;
-                    GetComponent<Renderer>().sortingOrder = -1;
-                    transform.GetChild(0).gameObject.SetActive(false);
-                    //Instantiate(_edge_particles, other.gameObject.transform.position, _edge_particles.rotation);
-                    _sound_source.PlayOneShot(_placed_audio, 1.0f);
-                    PuzzleManager.Instance.piece_placed(gameObject.name);
+                    put_piece_place(piece_solution, _new_piece_position);
                 }
                 _position_changed = false;
 
@@ -139,46 +128,51 @@ namespace Tangram{
 		void OnTriggerStay2D(Collider2D other){
             
             _collided = true;
-            //Debug.Log("HEY!!!");
-            //Debug.Log(other.gameObject.name);
 
             if (piece_status == (int)Piece_States.JUST_MOVED){
-
+                
 			    if (other.gameObject.name == "socket_" + gameObject.name) {
 
-				    transform.position = other.gameObject.transform.position;
-                    transform.rotation = other.gameObject.transform.rotation;
-                    piece_status = (int)Piece_States.LOCKED;
-				    other.GetComponent<PolygonCollider2D> ().enabled = false;
-				    GetComponent<PolygonCollider2D> ().enabled = false;
-                    GetComponent<Renderer>().sortingOrder = -1;
-                    transform.GetChild(0).gameObject.SetActive(false);
-                    //Instantiate(_edge_particles, other.gameObject.transform.position, _edge_particles.rotation);
-                    _sound_source.PlayOneShot (_placed_audio, 1.0f);
-	                PuzzleManager.Instance.piece_placed(gameObject.name);
-				    //PuzzleManager.Instance.reset_piece_timer ();
-                    //GameManager.Instance.get_logger ( ).write_log_line ("Correctly placed piece: " + gameObject.name);
+                    put_piece_place(other.gameObject.transform, other.gameObject.transform.position);
 
                 } else if(other.gameObject.name.Contains("socket")) {
-                    
-                    piece_status = (int) Piece_States.IDLE;
 
-                    if (other.gameObject != _last_object_collided) {
-                        //PuzzleManager.Instance.new_error ( );
-                        _last_object_collided = other.gameObject;
-                        _just_errored = true;
-                        //Debug.Log ("Kid dropped piece in wrong place! Number of Wrong Times: " + PuzzleManager.Instance.get_n_errors());
-                        //GameManager.Instance.get_logger().write_log_line("Piece " + gameObject.name + " dropped in wrong place! Number of Wrong Tries: " + PuzzleManager.Instance.get_n_errors());
-                    } else {
-                        if (!_just_errored) {
-                            //PuzzleManager.Instance.new_error ( );
-                            _just_errored = true;
-                            //Debug.Log ("Kid dropped piece in wrong place! Number of Wrong Times: " + PuzzleManager.Instance.get_n_errors ( ));
-                            //GameManager.Instance.get_logger ( ).write_log_line ("Piece " + gameObject.name + " dropped in wrong place! Number of Wrong Tries: " + PuzzleManager.Instance.get_n_errors ( ));
-                        } else {
-                            _just_errored = false;
+                    if (GameManager.Instance.get_difficulty() == (int)Difficulty_Levels.HARD && possible_location(other.gameObject)) {
+
+                        Dictionary<string, GameObject> solution = PuzzleManager.Instance.get_solution_pieces();
+                        List<string> current_location = new List<string> (other.gameObject.name.Split('_'));
+                        string location_name = "";
+                        foreach (string name_part in current_location) {
+                            if (!name_part.Contains("socket")) { 
+                                location_name += name_part;
+                                if (name_part != current_location[current_location.Count -1])
+                                    location_name += "_";
+                            }
                         }
+                        GameObject place_object_location = solution[location_name];
+                        GameObject picked_object_location = solution[gameObject.name];
+                        solution.Remove(location_name);
+                        solution.Remove(gameObject.name);
+                        solution.Add(location_name, picked_object_location);
+                        solution.Add(gameObject.name, place_object_location);
+                        PuzzleManager.Instance.set_solution_pieces(solution);
+                        put_piece_place(other.gameObject.transform, other.gameObject.transform.position);
 
+                    } else {
+
+                        piece_status = (int) Piece_States.IDLE;
+
+                        if (other.gameObject != _last_object_collided) {
+                            _last_object_collided = other.gameObject;
+                            _just_errored = true;
+                        } else {
+                            if (!_just_errored) {
+                                _just_errored = true;
+                            } else {
+                                _just_errored = false;
+                            }
+
+                        }
                     }
 
                 }
@@ -186,6 +180,33 @@ namespace Tangram{
             }
 
 		}
+
+        private bool possible_location(GameObject location) {
+
+            List<string> collided_object_name = new List<string> (location.name.Split('_'));
+            string[] object_name = gameObject.name.Split('_');
+
+            if (gameObject.transform.rotation == location.transform.rotation && collided_object_name.IndexOf(object_name[0]) > -1 && collided_object_name.IndexOf(object_name[1]) > -1)
+                return true;
+            else
+                return false;
+
+        }
+
+        private void put_piece_place(Transform solution_location, Vector3 final_pos) {
+
+            transform.position = final_pos;
+            transform.rotation = solution_location.rotation;
+            piece_status = (int)Piece_States.LOCKED;
+            solution_location.GetComponent<PolygonCollider2D>().enabled = false;
+            GetComponent<PolygonCollider2D>().enabled = false;
+            GetComponent<Renderer>().sortingOrder = -1;
+            transform.GetChild(0).gameObject.SetActive(false);
+            //Instantiate(_edge_particles, other.gameObject.transform.position, _edge_particles.rotation);
+            _sound_source.PlayOneShot(_placed_audio, 1.0f);
+            PuzzleManager.Instance.piece_placed(gameObject.name);
+
+        }
 
         void OnCollisionEnter (Collision collision) {
             _collided = true;
@@ -199,10 +220,8 @@ namespace Tangram{
 	        if(_unlocked){
 				if ((piece_status != (int)Piece_States.LOCKED) && Input.GetMouseButtonDown (0)){
                     piece_status = (int)Piece_States.PICKED;
-					GetComponent<Renderer> ().sortingOrder = 10;
-					//PuzzleManager.Instance.control_piece_timer (false);
+					GetComponent<Renderer> ().sortingOrder = 20;
 					_piece_cliked = true;
-                    //GameManager.Instance.get_logger ( ).write_log_line ("Picked piece: " + gameObject.name);
 				}
 			}
 
@@ -212,11 +231,9 @@ namespace Tangram{
 			if (_unlocked){
 		        if ((piece_status != (int)Piece_States.LOCKED) && Input.GetMouseButtonUp (0)) {
 					piece_status = (int)Piece_States.JUST_MOVED;
-					GetComponent<Renderer> ().sortingOrder = 0;
-					//PuzzleManager.Instance.control_piece_timer (true);
+					GetComponent<Renderer> ().sortingOrder = 1;
 					_piece_cliked = false;
                     _just_moved = true;
-                    //GameManager.Instance.get_logger ( ).write_log_line ("Dropped piece: " + gameObject.name);
 				}
 			}
 		}

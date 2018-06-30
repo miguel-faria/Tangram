@@ -13,7 +13,6 @@ namespace Tangram{
 		private string _parameters_text_file = "params_file.txt";
         private string _current_piece_name = "";
         private string _current_player = "";
-		private DateTime _puzzle_over;
         private int _n_turns = 0;
         private bool _change_turn = false;
         private bool _first_turn = false;
@@ -21,9 +20,12 @@ namespace Tangram{
 		private bool _unlock_puzzle_pieces = false;
 		private bool _game_started = false;
         private bool _started_logging = false;
+        private bool _touched_piece_solution = false;
+		private DateTime _puzzle_over;
         private List<string> _playing_order = new List<string>();
-        private System.Random rand_generator = new System.Random();
+        private GameObject _touched_place;
 
+        private static System.Random _rand_generator;
         //private static PuzzleLogger _logger = null;
         private static GameManager _instance = null;
         private static GameModes.GameMode _game_mode = null;
@@ -32,8 +34,8 @@ namespace Tangram{
 
 		//Basic Game Settings
 		private static int _difficulty_level = (int)Difficulty_Levels.EASY;
-        private static string _puzzle = "boat";
-        private static string _play_mode = "regular";
+        private static string _puzzle = "cat";
+        private static string _play_mode = "help";
         private static bool _rotation = false;
         private static bool _robot = true;
         private static int _n_players = 1;
@@ -56,7 +58,9 @@ namespace Tangram{
 					}
 				}
 
-			} else if (_instance != this){
+                _rand_generator = new System.Random();
+
+            } else if (_instance != this){
                 gameObject.SetActive (false);
 				return;
 			}
@@ -85,13 +89,13 @@ namespace Tangram{
                                 names.Add("robot");
 
                             while (names.Count > 0) {
-                                idx = rand_generator.Next(0, names.Count - 1);
+                                idx = _rand_generator.Next(0, names.Count - 1);
                                 _playing_order.Add(names[idx]);
                                 names.RemoveAt(idx);
                             }
                         } else {
                             if (_robot) {
-                                if (rand_generator.Next(0, 1) > 0) {
+                                if (_rand_generator.Next(0, 1) > 0) {
                                     _playing_order.Add("robot");
                                     _playing_order.Add(_player_names[0]);
                                 }
@@ -103,8 +107,39 @@ namespace Tangram{
                             else
                                 _playing_order.Add(_player_names[0]);
                         }
-
+                        
+                        _first_turn = true;
+                        break;
+                    case "help":
+                        _game_mode = new GameModes.HelpMode(_rotation, GameObject.Find("Pieces"), GameObject.Find("Solution"));
                         _game_started = true;
+                        _playing_order = new List<string>();
+                        if (_n_players == 0 && _robot) {
+                            _playing_order.Add("robot");
+                        } else if (_n_players > 1) {
+                            List<string> names = new List<string>(_player_names);
+                            int idx;
+                            if (_robot)
+                                names.Add("robot");
+
+                            while (names.Count > 0) {
+                                idx = _rand_generator.Next(0, names.Count - 1);
+                                _playing_order.Add(names[idx]);
+                                names.RemoveAt(idx);
+                            }
+                        } else {
+                            if (_robot) {
+                                if (_rand_generator.Next(0, 1) > 0) {
+                                    _playing_order.Add("robot");
+                                    _playing_order.Add(_player_names[0]);
+                                } else {
+                                    _playing_order.Add(_player_names[0]);
+                                    _playing_order.Add("robot");
+                                }
+                            } else
+                                _playing_order.Add(_player_names[0]);
+                        }
+                        
                         _first_turn = true;
                         break;
                 }
@@ -170,12 +205,17 @@ namespace Tangram{
                     }
                     if (_current_player.Contains("robot")) {
                         lock_pieces();
-                        _current_piece_name = new List<string>(PuzzleManager.Instance.get_remaining_pieces().Keys)[rand_generator.Next(0, PuzzleManager.Instance.get_remaining_pieces().Count)];
+                        _current_piece_name = new List<string>(PuzzleManager.Instance.get_remaining_pieces().Keys)[_rand_generator.Next(0, PuzzleManager.Instance.get_remaining_pieces().Count)];
+                        if (_difficulty_level == (int)Difficulty_Levels.HARD)
+                            _game_mode.update_turn_info(_current_player, _current_piece_name, UnityEngine.Random.Range(15, 20), DateTime.Now);
+                        else
+                            _game_mode.update_turn_info(_current_player, _current_piece_name, UnityEngine.Random.Range(8, 10), DateTime.Now);
                     } else {
                         unlock_pieces();
                         _current_piece_name = "";
+                        _game_mode.update_turn_info(_current_player, _current_piece_name, 0, DateTime.Now);
                     }
-                    _game_mode.update_turn_info(_current_player, _current_piece_name);
+                    
                 }
 
                 if (_current_player.Contains("robot"))
@@ -475,6 +515,23 @@ namespace Tangram{
 
         public string get_puzzle() {
             return _puzzle;
+        }
+
+        public void set_touched_piece_solution(GameObject touched_solution) {
+            _touched_piece_solution = true;
+            _touched_place = touched_solution;
+        }
+
+        public void unset_touched_piece_solution() {
+            _touched_piece_solution = false;
+        }
+
+        public GameObject get_touched_solution_place() {
+            return _touched_place;
+        }
+
+        public bool has_solution_touched() {
+            return _touched_piece_solution;
         }
 	}
 }

@@ -27,9 +27,28 @@ namespace Tangram{
         public static int difficulty_name_to_val(string difficulty_name) {
             return (int)Enum.Parse(typeof(Difficulty_Levels), difficulty_name.ToUpper());
         }
+
+        public static string capitalize_word(string word) {
+
+            switch (word) {
+
+                case null:
+                    throw new ArgumentNullException("Empty word to capitalize.");
+                case "":
+                    throw new ArgumentException("Word to capitalize must not be empty");
+                default:
+                    return Char.ToUpper(word[0]) + word.Substring(1);
+                
+            }
+        }
     }
 
 	public static class Constants {
+
+        public const int ASKING_TIMEOUT = 30;
+        public const int BLINKING_TIMEOUT = 10;
+
+        public const double BLINK_TIME = 0.5;
 
         public const string LOG_PATH = "Logs/";
 

@@ -10,7 +10,7 @@ namespace Tangram.GameModes {
 
         void player_turn();
 
-        void update_turn_info(string player, string piece);
+        void update_turn_info(string player, string piece, int turn_time, DateTime start);
 
     }
 }
