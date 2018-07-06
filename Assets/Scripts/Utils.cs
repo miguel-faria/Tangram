@@ -47,6 +47,7 @@ namespace Tangram{
 
         public const int ASKING_TIMEOUT = 30;
         public const int BLINKING_TIMEOUT = 10;
+        public const int MAX_N_ASKS = 5;
 
         public const double BLINK_TIME = 0.5;
 

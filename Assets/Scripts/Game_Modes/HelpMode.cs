@@ -73,7 +73,7 @@ namespace Tangram.GameModes {
                 _just_started_turn = false;
             }
 
-            if (_asking_help && (_n_help_asked < 3)) {
+            if (_asking_help && (_n_help_asked < (Constants.MAX_N_ASKS + 1))) {
 
                 if (_first_asking) { 
                     _start_asking = DateTime.Now;
@@ -81,9 +81,15 @@ namespace Tangram.GameModes {
                     _flashing_start = _start_asking;
                     _first_asking = false;
                     _flash_piece = true;
+
+                    if (GameManager.Use_Connection) {
+                        ((Networking.RosBridge.AskHelpROS)GameManager.Robot_Connection).ask_kid_help("place", _n_help_asked, _current_piece_name);
+                        if (((Networking.ROSConnection)GameManager.Robot_Connection).publish(GameManager.Instance.get_pub_topic(), "std_msgs/String"))
+                            _n_help_asked = 1;
+                    }
                 }
 
-                if ((DateTime.Now - _start_asking).TotalSeconds > Constants.ASKING_TIMEOUT + _n_help_asked * Constants.ASKING_TIMEOUT) {
+                if ((DateTime.Now - _start_asking).TotalSeconds > (Constants.ASKING_TIMEOUT + _n_help_asked * Constants.ASKING_TIMEOUT)) {
 
                     // remember player to help
                     _flash_piece = true;
@@ -91,7 +97,16 @@ namespace Tangram.GameModes {
                     _last_switch = DateTime.MinValue;
                     Debug.Log("Where should the piece go: " + _current_piece_name);
 
-                    _n_help_asked++;
+                    if (_n_help_asked < Constants.MAX_N_ASKS) {
+                        if (GameManager.Use_Connection) {
+                            ((Networking.RosBridge.AskHelpROS)GameManager.Robot_Connection).ask_kid_help("place", _n_help_asked, _current_piece_name);
+                            if (((Networking.ROSConnection)GameManager.Robot_Connection).publish(GameManager.Instance.get_pub_topic(), "std_msgs/String"))
+                                _n_help_asked++;
+                        }
+                    } else
+                        _n_help_asked++;
+                        
+
                 }
 
                 if (_flash_piece)
@@ -148,10 +163,34 @@ namespace Tangram.GameModes {
 
                         if (_final_position != piece_solution.transform.position) { 
                             piece.gameObject.transform.position = _initial_position;
+                            if (GameManager.Use_Connection) {
+                                switch (GameManager.Instance.get_connection_mode()) {
+                                    case "ros":
+                                        ((Networking.RosBridge.AskHelpROS)GameManager.Robot_Connection).wrong_piece_placed("ask_help", "placed", _current_piece_name);
+                                        ((Networking.ROSConnection)GameManager.Robot_Connection).publish(GameManager.Instance.get_pub_topic(), "std_msgs/String");
+                                        break;
+                                    case "thalamus":
+                                        break;
+                                    default:
+                                        break;
+                                }
+                            }
                         } else {
                             piece.GetComponent<MovePiece>().piece_position(piece_solution.transform.position);
                             piece.GetComponent<MovePiece>().set_position_change(true);
                             _asking_help = false;
+                            if (GameManager.Use_Connection) {
+                                switch (GameManager.Instance.get_connection_mode()) {
+                                    case "ros":
+                                        ((Networking.RosBridge.AskHelpROS)GameManager.Robot_Connection).correct_piece_placed("ask_help", "placed", _current_piece_name);
+                                        ((Networking.ROSConnection)GameManager.Robot_Connection).publish(GameManager.Instance.get_pub_topic(), "std_msgs/String");
+                                        break;
+                                    case "thalamus":
+                                        break;
+                                    default:
+                                        break;
+                                }
+                            }
                         }
 
                         _piece_moving = false;
@@ -159,6 +198,9 @@ namespace Tangram.GameModes {
                 }
 
             } else {
+
+                if (_n_help_asked >= Constants.MAX_N_ASKS)
+                    _robot_play_time = DateTime.Now.AddSeconds(-0.5);
 
                 if (DateTime.Now > _robot_play_time)
                     move_piece();

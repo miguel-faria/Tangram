@@ -21,24 +21,37 @@ namespace Tangram{
 		private bool _game_started = false;
         private bool _started_logging = false;
         private bool _touched_piece_solution = false;
+        private bool _can_play = true;
 		private DateTime _puzzle_over;
+        private DateTime _ask_start;
         private List<string> _playing_order = new List<string>();
         private GameObject _touched_place;
 
         private static System.Random _rand_generator;
         //private static PuzzleLogger _logger = null;
+        private static bool _use_connection = false;
         private static GameManager _instance = null;
         private static GameModes.GameMode _game_mode = null;
+        private static Networking.RobotConnection _robot_connection = null;
         public static GameManager Instance { get { return _instance; } }
+        public static bool Use_Connection { get { return _use_connection; } }
+        public static Networking.RobotConnection Robot_Connection { get { return _robot_connection; } }
         //public static GameModes.GameMode PlayMode { get { return _} }
 
-		//Basic Game Settings
+        //Basic Game Settings
+        private string _connection_mode = "ros";
+        private string _ros_pub_topic = "/inside_tangram/tangram_connection_sub";
+        private string _ros_sub_topic = "/inside_tangram/tangram_connection_pub";
+
 		private static int _difficulty_level = (int)Difficulty_Levels.EASY;
-        private static string _puzzle = "cat";
-        private static string _play_mode = "help";
+        private static string _puzzle = "square";
+        private static string _play_mode = "regular";
+        private static string _connection_ip = "localhost";
         private static bool _rotation = false;
         private static bool _robot = true;
         private static int _n_players = 1;
+        private static int _connection_port = 9090;
+        private static int _game_nr = 1;
         private static List<string> _player_names = new List<string>(new string[] { "Miguel" });
 
 		// Use this for initialization
@@ -59,6 +72,30 @@ namespace Tangram{
 				}
 
                 _rand_generator = new System.Random();
+
+                if (_use_connection) {
+                    _ask_start = DateTime.MinValue;
+                    switch (_play_mode) {
+                        case "regular":
+                            if (_connection_mode.Contains("ros")) {
+                                //TODO
+                            } else if (_connection_mode.Contains("thalamus")) {
+                                //TODO
+                            }
+                            break;
+                        case "help":
+                            if (_connection_mode.Contains("ros")) {
+                                _robot_connection = new Networking.RosBridge.AskHelpROS(_connection_ip, _connection_port);
+                                ((Networking.RosBridge.AskHelpROS)_robot_connection).advertize(_ros_pub_topic, "std_msgs/String");
+                                ((Networking.RosBridge.AskHelpROS)_robot_connection).subscribe(_ros_sub_topic, "std_msgs/String");
+                            } else if (_connection_mode.Contains("thalamus")) {
+                                //TOD
+                            }
+                            break;
+                        default:
+                            break;
+                    }
+                }
 
             } else if (_instance != this){
                 gameObject.SetActive (false);
@@ -107,7 +144,7 @@ namespace Tangram{
                             else
                                 _playing_order.Add(_player_names[0]);
                         }
-                        
+
                         _first_turn = true;
                         break;
                     case "help":
@@ -139,9 +176,27 @@ namespace Tangram{
                             } else
                                 _playing_order.Add(_player_names[0]);
                         }
-                        
+
                         _first_turn = true;
                         break;
+
+                    default:
+                        Debug.Log("Invalid Game Type");
+                        break;
+                }
+
+                if (_use_connection) {
+                    switch (_connection_mode) {
+                        case "ros":
+                            ((Networking.ROSConnection)_robot_connection).game_started(_puzzle, false);
+                            ((Networking.ROSConnection)_robot_connection).publish(_ros_pub_topic, "std_msgs/String");
+                            break;
+                        case "thalamus":
+                            //TODO
+                            break;
+                        default:
+                            break;
+                    }
                 }
             }
         }
@@ -203,6 +258,7 @@ namespace Tangram{
                         _current_player = _playing_order[0];
                         _first_turn = false;
                     }
+
                     if (_current_player.Contains("robot")) {
                         lock_pieces();
                         _current_piece_name = new List<string>(PuzzleManager.Instance.get_remaining_pieces().Keys)[_rand_generator.Next(0, PuzzleManager.Instance.get_remaining_pieces().Count)];
@@ -210,20 +266,28 @@ namespace Tangram{
                             _game_mode.update_turn_info(_current_player, _current_piece_name, UnityEngine.Random.Range(15, 20), DateTime.Now);
                         else
                             _game_mode.update_turn_info(_current_player, _current_piece_name, UnityEngine.Random.Range(8, 10), DateTime.Now);
+                        if (_use_connection)
+                            robot_turn_warning();
                     } else {
                         unlock_pieces();
                         _current_piece_name = "";
                         _game_mode.update_turn_info(_current_player, _current_piece_name, 0, DateTime.Now);
+                        if (_use_connection)
+                            player_turn_warning();
                     }
                     
                 }
 
-                if (_current_player.Contains("robot"))
-                    _game_mode.robot_turn();
-                else
-                    _game_mode.player_turn();
+                if(_use_connection && _can_play) { 
+                    if (_current_player.Contains("robot"))
+                        _game_mode.robot_turn();
+                    else
+                        _game_mode.player_turn();
+                }
             } else if (_puzzle_finished && ((DateTime.Now - _puzzle_over).TotalSeconds > 1.0f)) {
                 quit_game();
+            } else if (!_game_started && _use_connection && (DateTime.Now - _ask_start).TotalSeconds > 10.0f) {
+                ask_start_game();
             }
             
         }
@@ -373,6 +437,45 @@ namespace Tangram{
                             i += _n_players;
                             break;
 
+                        case "-game_nr":
+                            correct_parse = Int32.TryParse(arg_value, out _game_nr);
+                            if (!correct_parse) {
+                                Debug.LogError("Invalid parsing of game number, defaulting to game 1.");
+                                _game_nr = 1;
+                            }
+                            break;
+
+                        case "-use_connection":
+                            if (arg_value.ToLower().Contains("true"))
+                                _use_connection = true;
+                            else
+                                _use_connection = false;
+                            break;
+
+                        case "-connection_mode":
+                            _connection_mode = arg_value;
+                            break;
+
+                        case "-connection_ip":
+                            _connection_ip = arg_value;
+                            break;
+
+                        case "-connection_port":
+                            correct_parse = Int32.TryParse(arg_value, out _connection_port);
+                            if (!correct_parse) {
+                                _connection_port = 9090;
+                                Debug.Log("Invalid or impossible to parse port value, setting to default value.");
+                            }
+                            break;
+
+                        case "-ros_topic_pub":
+                            _ros_pub_topic = arg_value;
+                            break;
+
+                        case "-ros_topic_sub":
+                            _ros_sub_topic = arg_value;
+                            break;
+
                         default:
                             Debug.Log ("Unrecognized input argument: " + arg);
                             break;
@@ -384,7 +487,52 @@ namespace Tangram{
 
 		}
 
-		void quit_game(){
+        private void ask_start_game() {
+            switch (_connection_mode) {
+                case "ros":
+                    if(_n_players > 0) { 
+                        if (_n_players == 1) { 
+                            ((Networking.ROSConnection)_robot_connection).game_ready(_player_names[0], _game_nr);
+                        } else if (_n_players > 1) {
+                            ((Networking.ROSConnection)_robot_connection).game_ready("multi_player", _game_nr);
+                        }
+                        ((Networking.ROSConnection)_robot_connection).publish(_ros_pub_topic, "std_msgs/String");
+                    }
+                    break;
+                case "thalamus":
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        private void player_turn_warning() {
+            switch (_connection_mode) {
+                case "ros":
+                    ((Networking.ROSConnection)_robot_connection).child_turn("play", _current_player);
+                    ((Networking.ROSConnection)_robot_connection).publish(_ros_pub_topic, "std_msgs/String");
+                    break;
+                case "thalamus":
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        private void robot_turn_warning() {
+            switch (_connection_mode) {
+                case "ros":
+                    ((Networking.ROSConnection)_robot_connection).robot_turn("regular", _player_names[_rand_generator.Next(0, _player_names.Count)], 0);
+                    ((Networking.ROSConnection)_robot_connection).publish(_ros_pub_topic, "std_msgs/String");
+                    break;
+                case "thalamus":
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        void quit_game(){
 			#if UNITY_EDITOR
 			UnityEditor.EditorApplication.isPlaying = false;
             OnQuit ( );
@@ -517,6 +665,22 @@ namespace Tangram{
             return _puzzle;
         }
 
+        public string get_pub_topic() {
+            return _ros_pub_topic;
+        }
+
+        public string get_sub_topic() {
+            return _ros_sub_topic;
+        }
+
+        public string get_current_player() {
+            return _current_player;
+        }
+
+        public string get_connection_mode() {
+            return _connection_mode;
+        }
+
         public void set_touched_piece_solution(GameObject touched_solution) {
             _touched_piece_solution = true;
             _touched_place = touched_solution;
@@ -532,6 +696,10 @@ namespace Tangram{
 
         public bool has_solution_touched() {
             return _touched_piece_solution;
+        }
+
+        public void set_can_play(bool val) {
+            _can_play = val;
         }
 	}
 }

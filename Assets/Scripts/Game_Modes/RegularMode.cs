@@ -38,6 +38,13 @@ namespace Tangram.GameModes {
 
         public void player_turn() {
             _current_player_display.text = Util_Methods.capitalize_word(_current_player);
+            GameObject current_picked_piece = PuzzleManager.picked_piece;
+            if (current_picked_piece) {
+                if (current_picked_piece.GetComponent<MovePiece>().get_just_errored()) {
+                    current_picked_piece.transform.position = PuzzleManager.Instance.get_init_positions()[current_picked_piece.transform.name][0];
+                    PuzzleManager.picked_piece = null;
+                }
+            }
         }
 
         public void update_turn_info(string player, string piece, int turn_time, DateTime start) {

@@ -134,6 +134,7 @@ namespace Tangram{
 			    if (other.gameObject.name == "socket_" + gameObject.name) {
 
                     put_piece_place(other.gameObject.transform, other.gameObject.transform.position);
+                    positive_feedback();
 
                 } else if(other.gameObject.name.Contains("socket")) {
 
@@ -157,19 +158,23 @@ namespace Tangram{
                         solution.Add(gameObject.name, place_object_location);
                         PuzzleManager.Instance.set_solution_pieces(solution);
                         put_piece_place(other.gameObject.transform, other.gameObject.transform.position);
+                        positive_feedback();
 
                     } else {
 
                         piece_status = (int) Piece_States.IDLE;
-
+                        
                         if (other.gameObject != _last_object_collided) {
                             _last_object_collided = other.gameObject;
                             _just_errored = true;
+                            negative_feedback();
                         } else {
                             if (!_just_errored) {
                                 _just_errored = true;
+                                negative_feedback();
                             } else {
                                 _just_errored = false;
+                                PuzzleManager.picked_piece = null;
                             }
 
                         }
@@ -222,6 +227,7 @@ namespace Tangram{
                     piece_status = (int)Piece_States.PICKED;
 					GetComponent<Renderer> ().sortingOrder = 20;
 					_piece_cliked = true;
+                    PuzzleManager.picked_piece = gameObject;
 				}
 			}
 
@@ -231,12 +237,42 @@ namespace Tangram{
 			if (_unlocked){
 		        if ((piece_status != (int)Piece_States.LOCKED) && Input.GetMouseButtonUp (0)) {
 					piece_status = (int)Piece_States.JUST_MOVED;
-					GetComponent<Renderer> ().sortingOrder = 1;
+					GetComponent<Renderer> ().sortingOrder = 5;
 					_piece_cliked = false;
                     _just_moved = true;
 				}
 			}
 		}
+
+        private void positive_feedback() {
+            if (GameManager.Use_Connection) {
+                switch (GameManager.Instance.get_connection_mode()) {
+                    case "ros":
+                        ((Networking.ROSConnection)GameManager.Robot_Connection).game_feedback("positive", GameManager.Instance.get_current_player(), PuzzleManager.Instance.get_n_remaining_pieces().ToString());
+                        ((Networking.ROSConnection)GameManager.Robot_Connection).publish(GameManager.Instance.get_pub_topic(), "std_msgs/String");
+                        break;
+                    case "thalamus":
+                        break;
+                    default:
+                        break;
+                }
+            }
+        }
+
+        private void negative_feedback() {
+            if (GameManager.Use_Connection) {
+                switch (GameManager.Instance.get_connection_mode()) {
+                    case "ros":
+                        ((Networking.ROSConnection)GameManager.Robot_Connection).game_feedback("negative", GameManager.Instance.get_current_player(), PuzzleManager.Instance.get_n_remaining_pieces().ToString());
+                        ((Networking.ROSConnection)GameManager.Robot_Connection).publish(GameManager.Instance.get_pub_topic(), "std_msgs/String");
+                        break;
+                    case "thalamus":
+                        break;
+                    default:
+                        break;
+                }
+            }
+        }
 
 		public void lock_piece(){
 			_unlocked = false;
@@ -262,5 +298,8 @@ namespace Tangram{
             _new_piece_rotation = new_rotation;
         }
 
+        public bool get_just_errored() {
+            return _just_errored;
+        }
 	}
 }

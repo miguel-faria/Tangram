@@ -10,8 +10,8 @@ using System.Timers;
 using LitJson;
 
 
-namespace Tangram.Networking { 
-    class RobotConnection {
+namespace Tangram.Networking {
+    public class RobotConnection {
 
         protected string _connection_ip = "";
         protected int _connection_port;

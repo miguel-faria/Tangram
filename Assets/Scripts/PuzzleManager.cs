@@ -24,7 +24,9 @@ namespace Tangram{
         private Dictionary<string, GameObject> _pieces_solution;
 
         private static PuzzleManager instance = null;
+        private static GameObject _picked_piece = null;
 		public static PuzzleManager Instance { get { return instance; } }
+        public static GameObject picked_piece { get { return _picked_piece; } set { _picked_piece = value; } }
 	    
 		// Use this for initialization
 	    void Start() {
@@ -228,6 +230,10 @@ namespace Tangram{
 
         public void set_solution_pieces(Dictionary<string, GameObject> solution) {
             _pieces_solution = solution;
+        }
+        
+        public Dictionary<string, List<Vector3>> get_init_positions() {
+            return _pieces_pos;
         }
     }
 }
