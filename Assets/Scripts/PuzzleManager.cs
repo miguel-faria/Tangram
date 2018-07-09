@@ -73,7 +73,7 @@ namespace Tangram{
             _n_total_pieces = n_pieces;
             //Locking pieces while game hasn't started;
             _n_errors = 0;
-			//lock_pieces ();
+			GameManager.Instance.lock_pieces ();
 	    }
 
 	    // Update is called once per frame

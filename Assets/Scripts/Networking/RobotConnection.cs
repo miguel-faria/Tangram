@@ -19,12 +19,17 @@ namespace Tangram.Networking {
         protected IPEndPoint _connection_end_point;
         protected bool _connection_established = false;
         protected JsonData _message_data = new JsonData();
+        protected string _last_event = "";
 
         public RobotConnection(string ip = "localhost", int port = 9098) {
 
             _connection_ip = ip;
             _connection_port = port;
             
+        }
+
+        public string get_last_event() {
+            return _last_event;
         }
     }
 }

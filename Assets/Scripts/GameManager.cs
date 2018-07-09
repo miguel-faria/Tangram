@@ -18,10 +18,11 @@ namespace Tangram{
         private bool _first_turn = false;
         private bool _puzzle_finished = false;
 		private bool _unlock_puzzle_pieces = false;
-		private bool _game_started = false;
+		private bool _game_ready = false;
         private bool _started_logging = false;
         private bool _touched_piece_solution = false;
         private bool _can_play = true;
+        private bool _game_started = false;
 		private DateTime _puzzle_over;
         private DateTime _ask_start;
         private List<string> _playing_order = new List<string>();
@@ -45,7 +46,7 @@ namespace Tangram{
 
 		private static int _difficulty_level = (int)Difficulty_Levels.EASY;
         private static string _puzzle = "square";
-        private static string _play_mode = "regular";
+        private static string _play_mode = "help";
         private static string _connection_ip = "localhost";
         private static bool _rotation = false;
         private static bool _robot = true;
@@ -72,8 +73,8 @@ namespace Tangram{
 				}
 
                 _rand_generator = new System.Random();
-
-                if (_use_connection) {
+                
+                if (_use_connection && (_robot_connection == null)) {
                     _ask_start = DateTime.MinValue;
                     switch (_play_mode) {
                         case "regular":
@@ -89,7 +90,7 @@ namespace Tangram{
                                 ((Networking.RosBridge.AskHelpROS)_robot_connection).advertize(_ros_pub_topic, "std_msgs/String");
                                 ((Networking.RosBridge.AskHelpROS)_robot_connection).subscribe(_ros_sub_topic, "std_msgs/String");
                             } else if (_connection_mode.Contains("thalamus")) {
-                                //TOD
+                                //TODO
                             }
                             break;
                         default:
@@ -111,91 +112,93 @@ namespace Tangram{
         }
 
         void OnSceneLoaded(Scene scene, LoadSceneMode mode) {
-            if(scene.name.Contains("level")) {
-                switch (_play_mode) {
-                    case "regular":
-                        _game_mode = new GameModes.RegularMode(_rotation, GameObject.Find("Pieces"), GameObject.Find("Solution"));
-                        _game_started = true;
-                        _playing_order = new List<string>();
-                        if(_n_players == 0 && _robot) {
-                            _playing_order.Add("robot");
-                        } else  if (_n_players > 1) {
-                            List<string> names = new List<string>(_player_names);
-                            int idx;
-                            if (_robot)
-                                names.Add("robot");
+            if(_game_mode == null) { 
+                if(scene.name.Contains("level")) {
+                    switch (_play_mode) {
+                        case "regular":
+                            _game_mode = new GameModes.RegularMode(_rotation, GameObject.Find("Pieces"), GameObject.Find("Solution"));
+                            _game_ready = true;
+                            _playing_order = new List<string>();
+                            if(_n_players == 0 && _robot) {
+                                _playing_order.Add("robot");
+                            } else  if (_n_players > 1) {
+                                List<string> names = new List<string>(_player_names);
+                                int idx;
+                                if (_robot)
+                                    names.Add("robot");
 
-                            while (names.Count > 0) {
-                                idx = _rand_generator.Next(0, names.Count - 1);
-                                _playing_order.Add(names[idx]);
-                                names.RemoveAt(idx);
-                            }
-                        } else {
-                            if (_robot) {
-                                if (_rand_generator.Next(0, 1) > 0) {
-                                    _playing_order.Add("robot");
-                                    _playing_order.Add(_player_names[0]);
+                                while (names.Count > 0) {
+                                    idx = _rand_generator.Next(0, names.Count - 1);
+                                    _playing_order.Add(names[idx]);
+                                    names.RemoveAt(idx);
                                 }
-                                else {
-                                    _playing_order.Add(_player_names[0]);
-                                    _playing_order.Add("robot");
+                            } else {
+                                if (_robot) {
+                                    if (_rand_generator.Next(0, 1) > 0) {
+                                        _playing_order.Add("robot");
+                                        _playing_order.Add(_player_names[0]);
+                                    }
+                                    else {
+                                        _playing_order.Add(_player_names[0]);
+                                        _playing_order.Add("robot");
+                                    }
                                 }
-                            }
-                            else
-                                _playing_order.Add(_player_names[0]);
-                        }
-
-                        _first_turn = true;
-                        break;
-                    case "help":
-                        _game_mode = new GameModes.HelpMode(_rotation, GameObject.Find("Pieces"), GameObject.Find("Solution"));
-                        _game_started = true;
-                        _playing_order = new List<string>();
-                        if (_n_players == 0 && _robot) {
-                            _playing_order.Add("robot");
-                        } else if (_n_players > 1) {
-                            List<string> names = new List<string>(_player_names);
-                            int idx;
-                            if (_robot)
-                                names.Add("robot");
-
-                            while (names.Count > 0) {
-                                idx = _rand_generator.Next(0, names.Count - 1);
-                                _playing_order.Add(names[idx]);
-                                names.RemoveAt(idx);
-                            }
-                        } else {
-                            if (_robot) {
-                                if (_rand_generator.Next(0, 1) > 0) {
-                                    _playing_order.Add("robot");
+                                else
                                     _playing_order.Add(_player_names[0]);
-                                } else {
-                                    _playing_order.Add(_player_names[0]);
-                                    _playing_order.Add("robot");
-                                }
-                            } else
-                                _playing_order.Add(_player_names[0]);
-                        }
+                            }
 
-                        _first_turn = true;
-                        break;
-
-                    default:
-                        Debug.Log("Invalid Game Type");
-                        break;
-                }
-
-                if (_use_connection) {
-                    switch (_connection_mode) {
-                        case "ros":
-                            ((Networking.ROSConnection)_robot_connection).game_started(_puzzle, false);
-                            ((Networking.ROSConnection)_robot_connection).publish(_ros_pub_topic, "std_msgs/String");
+                            _first_turn = true;
                             break;
-                        case "thalamus":
-                            //TODO
+                        case "help":
+                            _game_mode = new GameModes.HelpMode(_rotation, GameObject.Find("Pieces"), GameObject.Find("Solution"));
+                            _game_ready = true;
+                            _playing_order = new List<string>();
+                            if (_n_players == 0 && _robot) {
+                                _playing_order.Add("robot");
+                            } else if (_n_players > 1) {
+                                List<string> names = new List<string>(_player_names);
+                                int idx;
+                                if (_robot)
+                                    names.Add("robot");
+
+                                while (names.Count > 0) {
+                                    idx = _rand_generator.Next(0, names.Count - 1);
+                                    _playing_order.Add(names[idx]);
+                                    names.RemoveAt(idx);
+                                }
+                            } else {
+                                if (_robot) {
+                                    if (_rand_generator.Next(0, 1) > 0) {
+                                        _playing_order.Add("robot");
+                                        _playing_order.Add(_player_names[0]);
+                                    } else {
+                                        _playing_order.Add(_player_names[0]);
+                                        _playing_order.Add("robot");
+                                    }
+                                } else
+                                    _playing_order.Add(_player_names[0]);
+                            }
+
+                            _first_turn = true;
                             break;
+
                         default:
+                            Debug.Log("Invalid Game Type");
                             break;
+                    }
+
+                    if (_use_connection && !(_robot_connection.get_last_event().Contains("game") && _robot_connection.get_last_event().Contains("begun"))) {
+                        switch (_connection_mode) {
+                            case "ros":
+                                ((Networking.ROSConnection)_robot_connection).game_started(_puzzle, false);
+                                ((Networking.ROSConnection)_robot_connection).publish(_ros_pub_topic, "std_msgs/String");
+                                break;
+                            case "thalamus":
+                                //TODO
+                                break;
+                            default:
+                                break;
+                        }
                     }
                 }
             }
@@ -242,43 +245,42 @@ namespace Tangram{
 		// Update is called once per frame
 		void Update () {
 
-			if (Screen.orientation == ScreenOrientation.Portrait || Screen.orientation == ScreenOrientation.LandscapeRight)
-				Screen.orientation = ScreenOrientation.LandscapeRight;
-			else
-				Screen.orientation = ScreenOrientation.LandscapeLeft;
-            
             if (_game_started && !_puzzle_finished && (PuzzleManager.Instance.get_remaining_pieces().Count > 0)) {
-                
-                if (_first_turn || _change_turn) {
-                    if (_change_turn) {
-                        _n_turns++;
-                        _change_turn = false;
-                        _current_player = _playing_order[_n_turns % _playing_order.Count];
-                    } else { 
-                        _current_player = _playing_order[0];
-                        _first_turn = false;
+
+                if (can_play()) {
+
+                    if (_first_turn || _change_turn) {
+                        if (_change_turn) {
+                            _n_turns++;
+                            _change_turn = false;
+                            _current_player = _playing_order[_n_turns % _playing_order.Count];
+                        } else {
+                            _current_player = _playing_order[0];
+                            _first_turn = false;
+                        }
+
+                        if (_current_player.Contains("robot")) {
+                            lock_pieces();
+                            _current_piece_name = new List<string>(PuzzleManager.Instance.get_remaining_pieces().Keys)[_rand_generator.Next(0, PuzzleManager.Instance.get_remaining_pieces().Count)];
+                            if (_difficulty_level == (int)Difficulty_Levels.HARD)
+                                _game_mode.update_turn_info(_current_player, _current_piece_name, UnityEngine.Random.Range(15, 20), DateTime.Now);
+                            else
+                                _game_mode.update_turn_info(_current_player, _current_piece_name, UnityEngine.Random.Range(8, 10), DateTime.Now);
+                            if (_use_connection)
+                                robot_turn_warning();
+                        } else {
+                            _current_piece_name = "";
+                            _game_mode.update_turn_info(_current_player, _current_piece_name, 0, DateTime.Now);
+                            if (_use_connection) {
+                                player_turn_warning();
+                                unlock_pieces();
+                            } else {
+                                unlock_pieces();
+                            }
+                        }
+
                     }
 
-                    if (_current_player.Contains("robot")) {
-                        lock_pieces();
-                        _current_piece_name = new List<string>(PuzzleManager.Instance.get_remaining_pieces().Keys)[_rand_generator.Next(0, PuzzleManager.Instance.get_remaining_pieces().Count)];
-                        if (_difficulty_level == (int)Difficulty_Levels.HARD)
-                            _game_mode.update_turn_info(_current_player, _current_piece_name, UnityEngine.Random.Range(15, 20), DateTime.Now);
-                        else
-                            _game_mode.update_turn_info(_current_player, _current_piece_name, UnityEngine.Random.Range(8, 10), DateTime.Now);
-                        if (_use_connection)
-                            robot_turn_warning();
-                    } else {
-                        unlock_pieces();
-                        _current_piece_name = "";
-                        _game_mode.update_turn_info(_current_player, _current_piece_name, 0, DateTime.Now);
-                        if (_use_connection)
-                            player_turn_warning();
-                    }
-                    
-                }
-
-                if(_use_connection && _can_play) { 
                     if (_current_player.Contains("robot"))
                         _game_mode.robot_turn();
                     else
@@ -286,8 +288,9 @@ namespace Tangram{
                 }
             } else if (_puzzle_finished && ((DateTime.Now - _puzzle_over).TotalSeconds > 1.0f)) {
                 quit_game();
-            } else if (!_game_started && _use_connection && (DateTime.Now - _ask_start).TotalSeconds > 10.0f) {
+            } else if (!_game_ready && _use_connection && (DateTime.Now - _ask_start).TotalSeconds > 20.0f) {
                 ask_start_game();
+                _ask_start = DateTime.Now;
             }
             
         }
@@ -370,7 +373,7 @@ namespace Tangram{
 
 						case "-difficulty":
                             if (arg_value.GetType().Equals(typeof(string))) {
-                                _difficulty_level = Util_Methods.level_name_to_val(arg_value);
+                                _difficulty_level = Util_Methods.difficulty_name_to_val(arg_value);
                             } else if(arg_value.GetType().Equals(typeof(int))) {
                                 correct_parse = Int32.TryParse(arg_value, out _difficulty_level);
                                 if (!correct_parse) {
@@ -490,6 +493,7 @@ namespace Tangram{
         private void ask_start_game() {
             switch (_connection_mode) {
                 case "ros":
+                    Debug.Log("Ask Start Game");
                     if(_n_players > 0) { 
                         if (_n_players == 1) { 
                             ((Networking.ROSConnection)_robot_connection).game_ready(_player_names[0], _game_nr);
@@ -588,7 +592,7 @@ namespace Tangram{
 			_puzzle_finished = true;
 		}
 
-        private void lock_pieces() {
+        public void lock_pieces() {
             Dictionary<string, GameObject> pieces_left = PuzzleManager.Instance.get_remaining_pieces();
             foreach (string piece_name in pieces_left.Keys) {
                 pieces_left[piece_name].GetComponent<MovePiece>().lock_piece();
@@ -596,12 +600,16 @@ namespace Tangram{
             }
         }
 
-        private void unlock_pieces() {
+        public void unlock_pieces() {
             Dictionary<string, GameObject> pieces_left = PuzzleManager.Instance.get_remaining_pieces();
             foreach (string piece_name in pieces_left.Keys) {
                 pieces_left[piece_name].GetComponent<MovePiece>().unlock_piece();
                 pieces_left[piece_name].GetComponent<SpriteRenderer>().color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
             }
+        }
+
+        private bool can_play() {
+            return (_can_play && !(_robot_connection.get_last_event().Contains("game") && _robot_connection.get_last_event().Contains("ready")));
         }
 
         public GameModes.GameMode get_playing_mode() {
@@ -621,11 +629,11 @@ namespace Tangram{
 		}
 
 		public void set_game_started(){
-			_game_started = true;
+			_game_ready = true;
 		}
 
 		public void unset_game_started(){
-			_game_started = false;
+			_game_ready = false;
 		}
         
         /*public void start_logging ( ) {
@@ -700,6 +708,14 @@ namespace Tangram{
 
         public void set_can_play(bool val) {
             _can_play = val;
+        }
+
+        public bool has_game_start() {
+            return _game_started;
+        }
+
+        public void set_game_started(bool started) {
+            _game_started = started;
         }
 	}
 }

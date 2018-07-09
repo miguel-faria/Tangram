@@ -27,6 +27,7 @@ namespace Tangram.GameModes {
         private DateTime _flashing_start;
         private DateTime _last_switch;
         private DateTime _robot_play_time;
+        private DateTime _player_turn_remind;
         private Vector3 _initial_position;
         private Vector3 _final_position;
 
@@ -37,6 +38,16 @@ namespace Tangram.GameModes {
 
         public void player_turn() {
             _current_player_display.text = Util_Methods.capitalize_word(_current_player);
+            if (GameManager.Use_Connection) { 
+                if (_just_started_turn) {
+                    _player_turn_remind = DateTime.Now;
+                    _just_started_turn = false;
+                } else if ((DateTime.Now - _player_turn_remind).TotalSeconds > Constants.REMIND_TIMEOUT) {
+                    _player_turn_remind = DateTime.Now;
+                    ((Networking.RosBridge.AskHelpROS)GameManager.Robot_Connection).child_turn("play", _current_player);
+                    ((Networking.RosBridge.AskHelpROS)GameManager.Robot_Connection).publish(GameManager.Instance.get_pub_topic(), "std_msgs/String");
+                }
+            }
         }
 
         public void update_turn_info(string player, string piece, int turn_time, DateTime start) {
@@ -89,7 +100,7 @@ namespace Tangram.GameModes {
                     }
                 }
 
-                if ((DateTime.Now - _start_asking).TotalSeconds > (Constants.ASKING_TIMEOUT + _n_help_asked * Constants.ASKING_TIMEOUT)) {
+                if ((DateTime.Now - _start_asking).TotalSeconds > (Constants.REMIND_TIMEOUT + _n_help_asked * Constants.REMIND_TIMEOUT)) {
 
                     // remember player to help
                     _flash_piece = true;

@@ -16,7 +16,7 @@ namespace Tangram.Networking {
         protected Dictionary<string, bool> _subscribing_topics = new Dictionary<string, bool>();
         protected Dictionary<string, string> _pub_topics_type = new Dictionary<string, string>();
         protected Dictionary<string, string> _sub_topics_type = new Dictionary<string, string>();
-        protected string _last_event;
+        private string _triggering_event = "";
 
         public ROSConnection(string ip = "localhost", int port = 9098) : base(ip, port) {
 
@@ -97,6 +97,7 @@ namespace Tangram.Networking {
         public bool publish(string pub_topic, string pub_type) {
             try {
 
+                GameManager.Instance.set_can_play(false);
                 //If there's no message data or no connection publish fails
                 if (_message_data == null)
                     throw new ArgumentNullException();
@@ -140,7 +141,6 @@ namespace Tangram.Networking {
                 _bridge_connection.Send(new byte[] { 255 });
 
                 Debug.Log("Sent Message to ROS topic " + pub_topic);
-                GameManager.Instance.set_can_play(false);
 
                 /*if (_last_event == "game_ready")
                     event_over();*/
@@ -149,6 +149,7 @@ namespace Tangram.Networking {
 
             } catch (Exception e) {
                 Debug.LogError("Caught an exception while trying to publish a message through ROS Bridge to topic " + pub_topic + ": " + e.Message);
+                GameManager.Instance.set_can_play(true);
                 return false;
             }
 
@@ -327,8 +328,9 @@ namespace Tangram.Networking {
                             event_data = JsonMapper.ToObject<JsonData>(data_reader)[0];
 
                             trig_event = event_data["event"].ToString();
+                            _triggering_event = event_data["trigger_event"].ToString();
 
-                            Debug.Log(trig_event);
+                            Debug.Log(trig_event + "\t" + _triggering_event);
 
                             if (trig_event.Contains("animation") && trig_event.Contains("over")) {
                                 event_over();
@@ -388,6 +390,8 @@ namespace Tangram.Networking {
 
         protected virtual void event_over() {
             GameManager.Instance.set_can_play(true);
+            if (_triggering_event.Contains("game") && _triggering_event.Contains("begun"))
+                GameManager.Instance.set_game_started(true);
         }
         
         public void game_ready(string child_name, int game_number) {
