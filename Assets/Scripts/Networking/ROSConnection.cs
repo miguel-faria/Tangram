@@ -391,9 +391,10 @@ namespace Tangram.Networking {
 
         protected virtual void event_over() {
             GameManager.Instance.set_can_play(true);
-            if (_triggering_event.Contains("game") && _triggering_event.Contains("begun"))
+            if (_triggering_event.Contains("game") && _triggering_event.Contains("begun")) { 
                 GameManager.Instance.set_game_started(true);
-            else if (_triggering_event.Contains("game") && _triggering_event.Contains("ready"))
+                GameManager.Instance.set_response_game_started(true);
+            } else if (_triggering_event.Contains("game") && _triggering_event.Contains("ready"))
                 GameManager.Instance.set_response_game_started(true);
         }
         

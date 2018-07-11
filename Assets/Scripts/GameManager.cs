@@ -33,6 +33,7 @@ namespace Tangram{
 
         private static System.Random _rand_generator;
         //private static PuzzleLogger _logger = null;
+        private static bool _send_message = false;
         private static bool _use_connection = false;
         private static GameManager _instance = null;
         private static GameModes.GameMode _game_mode = null;
@@ -194,11 +195,10 @@ namespace Tangram{
                     if (_use_connection) {
                         switch (_connection_mode) {
                                 case "ros":
-                                    if (!(_robot_connection.get_last_event().Contains("game") && _robot_connection.get_last_event().Contains("begun"))) {// ||
-                                        //((_robot_connection.get_last_event().Contains("game") && _robot_connection.get_last_event().Contains("begun")) && (DateTime.Now - _last_sent_begun).TotalSeconds > 10.0f)) {
+                                    if (!(_robot_connection.get_last_event().Contains("game") && _robot_connection.get_last_event().Contains("begun"))) {
                                         _last_sent_begun = DateTime.Now;
                                         ((Networking.ROSConnection)_robot_connection).game_started(_puzzle, false);
-                                        ((Networking.ROSConnection)_robot_connection).publish(_ros_pub_topic, "std_msgs/String");
+                                        _send_message = true;
                                     }
                                     break;
                                 case "thalamus":
@@ -252,10 +252,21 @@ namespace Tangram{
 
 		// Update is called once per frame
 		void Update () {
+            
+            if (_send_message) {
+                switch (_connection_mode) {
+                    case "ros":
+                        ((Networking.ROSConnection)_robot_connection).publish(_ros_pub_topic, "std_msgs/String");
+                        break;
+                    case "thalamus":
+                        break;
+                    default:
+                        break;
+                }
+                _send_message = false;
 
-            if((DateTime.Now - _game_begin).TotalSeconds > 10.0f) {
-
-                if (_game_started && !_puzzle_finished && (PuzzleManager.Instance.get_remaining_pieces().Count > 0)) {
+            } else { 
+                if (_game_ready && _game_started && !_puzzle_finished && (PuzzleManager.Instance.get_remaining_pieces().Count > 0)) {
 
                     if (can_play()) {
 
@@ -298,7 +309,7 @@ namespace Tangram{
                     }
                 } else if (_puzzle_finished && ((DateTime.Now - _puzzle_over).TotalSeconds > 1.0f)) {
                     quit_game();
-                } else if(_game_ready && !_response_game_started && (DateTime.Now - _last_sent_begun).TotalSeconds > 10.0f) {
+                } else if(_game_ready && !_response_game_started && !_game_started && (DateTime.Now - _last_sent_begun).TotalSeconds > 10.0f) {
                     switch (_connection_mode) {
                         case "ros":
                             ((Networking.ROSConnection)_robot_connection).game_started(_puzzle, false);
@@ -311,7 +322,7 @@ namespace Tangram{
                         default:
                             break;
                     }
-                } else if (!_game_ready && _use_connection && (DateTime.Now - _ask_start).TotalSeconds > 20.0f) {
+                } else if (!_game_ready && !_game_started && _use_connection && (DateTime.Now - _ask_start).TotalSeconds > 20.0f) {
                     ask_start_game();
                     _ask_start = DateTime.Now;
                 }
