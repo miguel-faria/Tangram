@@ -23,8 +23,11 @@ namespace Tangram{
         private bool _touched_piece_solution = false;
         private bool _can_play = true;
         private bool _game_started = false;
-		private DateTime _puzzle_over;
+        private bool _response_game_started = false;
+        private DateTime _puzzle_over;
         private DateTime _ask_start;
+        private DateTime _game_begin;
+        private DateTime _last_sent_begun = DateTime.MinValue;
         private List<string> _playing_order = new List<string>();
         private GameObject _touched_place;
 
@@ -87,8 +90,9 @@ namespace Tangram{
                         case "help":
                             if (_connection_mode.Contains("ros")) {
                                 _robot_connection = new Networking.RosBridge.AskHelpROS(_connection_ip, _connection_port);
-                                ((Networking.RosBridge.AskHelpROS)_robot_connection).advertize(_ros_pub_topic, "std_msgs/String");
+                                //((Networking.RosBridge.AskHelpROS)_robot_connection).advertize(_ros_pub_topic, "std_msgs/String");
                                 ((Networking.RosBridge.AskHelpROS)_robot_connection).subscribe(_ros_sub_topic, "std_msgs/String");
+                                _game_begin = DateTime.Now;
                             } else if (_connection_mode.Contains("thalamus")) {
                                 //TODO
                             }
@@ -187,17 +191,21 @@ namespace Tangram{
                             break;
                     }
 
-                    if (_use_connection && !(_robot_connection.get_last_event().Contains("game") && _robot_connection.get_last_event().Contains("begun"))) {
+                    if (_use_connection) {
                         switch (_connection_mode) {
-                            case "ros":
-                                ((Networking.ROSConnection)_robot_connection).game_started(_puzzle, false);
-                                ((Networking.ROSConnection)_robot_connection).publish(_ros_pub_topic, "std_msgs/String");
-                                break;
-                            case "thalamus":
-                                //TODO
-                                break;
-                            default:
-                                break;
+                                case "ros":
+                                    if (!(_robot_connection.get_last_event().Contains("game") && _robot_connection.get_last_event().Contains("begun"))) {// ||
+                                        //((_robot_connection.get_last_event().Contains("game") && _robot_connection.get_last_event().Contains("begun")) && (DateTime.Now - _last_sent_begun).TotalSeconds > 10.0f)) {
+                                        _last_sent_begun = DateTime.Now;
+                                        ((Networking.ROSConnection)_robot_connection).game_started(_puzzle, false);
+                                        ((Networking.ROSConnection)_robot_connection).publish(_ros_pub_topic, "std_msgs/String");
+                                    }
+                                    break;
+                                case "thalamus":
+                                    //TODO
+                                    break;
+                                default:
+                                    break;
                         }
                     }
                 }
@@ -245,54 +253,70 @@ namespace Tangram{
 		// Update is called once per frame
 		void Update () {
 
-            if (_game_started && !_puzzle_finished && (PuzzleManager.Instance.get_remaining_pieces().Count > 0)) {
+            if((DateTime.Now - _game_begin).TotalSeconds > 10.0f) {
 
-                if (can_play()) {
+                if (_game_started && !_puzzle_finished && (PuzzleManager.Instance.get_remaining_pieces().Count > 0)) {
 
-                    if (_first_turn || _change_turn) {
-                        if (_change_turn) {
-                            _n_turns++;
-                            _change_turn = false;
-                            _current_player = _playing_order[_n_turns % _playing_order.Count];
-                        } else {
-                            _current_player = _playing_order[0];
-                            _first_turn = false;
-                        }
+                    if (can_play()) {
 
-                        if (_current_player.Contains("robot")) {
-                            lock_pieces();
-                            _current_piece_name = new List<string>(PuzzleManager.Instance.get_remaining_pieces().Keys)[_rand_generator.Next(0, PuzzleManager.Instance.get_remaining_pieces().Count)];
-                            if (_difficulty_level == (int)Difficulty_Levels.HARD)
-                                _game_mode.update_turn_info(_current_player, _current_piece_name, UnityEngine.Random.Range(15, 20), DateTime.Now);
-                            else
-                                _game_mode.update_turn_info(_current_player, _current_piece_name, UnityEngine.Random.Range(8, 10), DateTime.Now);
-                            if (_use_connection)
-                                robot_turn_warning();
-                        } else {
-                            _current_piece_name = "";
-                            _game_mode.update_turn_info(_current_player, _current_piece_name, 0, DateTime.Now);
-                            if (_use_connection) {
-                                player_turn_warning();
-                                unlock_pieces();
+                        if (_first_turn || _change_turn) {
+                            if (_change_turn) {
+                                _n_turns++;
+                                _change_turn = false;
+                                _current_player = _playing_order[_n_turns % _playing_order.Count];
                             } else {
-                                unlock_pieces();
+                                _current_player = _playing_order[0];
+                                _first_turn = false;
                             }
+
+                            if (_current_player.Contains("robot")) {
+                                lock_pieces();
+                                _current_piece_name = new List<string>(PuzzleManager.Instance.get_remaining_pieces().Keys)[_rand_generator.Next(0, PuzzleManager.Instance.get_remaining_pieces().Count)];
+                                if (_difficulty_level == (int)Difficulty_Levels.HARD)
+                                    _game_mode.update_turn_info(_current_player, _current_piece_name, UnityEngine.Random.Range(15, 20), DateTime.Now);
+                                else
+                                    _game_mode.update_turn_info(_current_player, _current_piece_name, UnityEngine.Random.Range(8, 10), DateTime.Now);
+                                if (_use_connection)
+                                    robot_turn_warning();
+                            } else {
+                                _current_piece_name = "";
+                                _game_mode.update_turn_info(_current_player, _current_piece_name, 0, DateTime.Now);
+                                if (_use_connection) {
+                                    player_turn_warning();
+                                    unlock_pieces();
+                                } else {
+                                    unlock_pieces();
+                                }
+                            }
+
                         }
 
+                        if (_current_player.Contains("robot"))
+                            _game_mode.robot_turn();
+                        else
+                            _game_mode.player_turn();
                     }
-
-                    if (_current_player.Contains("robot"))
-                        _game_mode.robot_turn();
-                    else
-                        _game_mode.player_turn();
+                } else if (_puzzle_finished && ((DateTime.Now - _puzzle_over).TotalSeconds > 1.0f)) {
+                    quit_game();
+                } else if(_game_ready && !_response_game_started && (DateTime.Now - _last_sent_begun).TotalSeconds > 10.0f) {
+                    switch (_connection_mode) {
+                        case "ros":
+                            ((Networking.ROSConnection)_robot_connection).game_started(_puzzle, false);
+                            ((Networking.ROSConnection)_robot_connection).publish(_ros_pub_topic, "std_msgs/String");
+                            _last_sent_begun = DateTime.Now;
+                            break;
+                        case "thalamus":
+                            //TODO
+                            break;
+                        default:
+                            break;
+                    }
+                } else if (!_game_ready && _use_connection && (DateTime.Now - _ask_start).TotalSeconds > 20.0f) {
+                    ask_start_game();
+                    _ask_start = DateTime.Now;
                 }
-            } else if (_puzzle_finished && ((DateTime.Now - _puzzle_over).TotalSeconds > 1.0f)) {
-                quit_game();
-            } else if (!_game_ready && _use_connection && (DateTime.Now - _ask_start).TotalSeconds > 20.0f) {
-                ask_start_game();
-                _ask_start = DateTime.Now;
             }
-            
+
         }
 
         private bool initialize_android(){
@@ -309,39 +333,122 @@ namespace Tangram{
 						line = file_reader.ReadLine();
 						if(line != null){
 							words = line.Split(new[] {':', ',', '-', '=', ' '}, StringSplitOptions.RemoveEmptyEntries);
-                            //bool correct_parse = false;
+                            string arg = words[0];
+                            string arg_value = words[1];
+                            bool correct_parse = false;
 
-							switch(words[0]){
+                            switch (arg){
 
-								case "robot_ip":
-								break;
+                                case "difficulty":
+                                    if (arg_value.GetType().Equals(typeof(string))) {
+                                        _difficulty_level = Util_Methods.difficulty_name_to_val(arg_value);
+                                    } else if (arg_value.GetType().Equals(typeof(int))) {
+                                        correct_parse = Int32.TryParse(arg_value, out _difficulty_level);
+                                        if (!correct_parse) {
+                                            Debug.LogError("Could not parse value for game level, defaulting to easy level.");
+                                            _difficulty_level = (int)Difficulty_Levels.EASY;
+                                        }
+                                    }
+                                    break;
 
-								case "ros_ip":
-								break;
+                                case "puzzle":
+                                    if (arg_value.GetType().Equals(typeof(string))) {
+                                        if (arg_value.ToLower() == "tangram") {
+                                            _puzzle = "square";
+                                        } else if (arg_value == "") {
+                                            System.Random r = new System.Random();
+                                            Array vals = Enum.GetValues(typeof(Level_Names));
+                                            _puzzle = Util_Methods.level_val_to_name(r.Next((int)vals.GetValue(0), (int)vals.GetValue(vals.Length - 1)));
+                                        } else
+                                            _puzzle = arg_value.ToLower();
+                                    } else if (arg_value.GetType().Equals(typeof(int))) {
+                                        int level;
+                                        correct_parse = Int32.TryParse(arg_value, out level);
+                                        if (!correct_parse) {
+                                            System.Random r = new System.Random();
+                                            Array vals = Enum.GetValues(typeof(Level_Names));
+                                            _puzzle = Util_Methods.level_val_to_name(r.Next((int)vals.GetValue(0), (int)vals.GetValue(vals.Length - 1)));
+                                            Debug.LogError("Could not parse value for puzzle, randomizing used puzzle. Puzzle set to: " + _puzzle);
+                                        } else
+                                            _puzzle = Util_Methods.level_val_to_name(level);
+                                    }
+                                    break;
 
-								case "robot_port":
-								break;
+                                case "robot":
+                                    if (arg_value.ToLower().Contains("true"))
+                                        _robot = true;
+                                    else
+                                        _robot = false;
+                                    break;
 
-								case "ros_port":
-								break;
+                                case "game_mode":
+                                    _play_mode = arg_value.ToLower();
+                                    break;
 
-								case "ros_topic_pub":
-								break;
+                                case "rotation":
+                                    if (arg_value.ToLower().Contains("true"))
+                                        _rotation = true;
+                                    else
+                                        _rotation = false;
+                                    break;
+
+                                case "player_number":
+                                    correct_parse = Int32.TryParse(arg_value, out _n_players);
+                                    if (!correct_parse) {
+                                        _n_players = 1;
+                                        _player_names.Add(words[2].ToLower());
+                                        Debug.LogError("Invalid number of players, considering only 1 player.");
+                                    } else {
+                                        for (int j = 0; j < _n_players; j++) {
+                                            _player_names.Add(words[2 + j]);
+                                        }
+                                    }
+                                    break;
+
+                                case "game_nr":
+                                    correct_parse = Int32.TryParse(arg_value, out _game_nr);
+                                    if (!correct_parse) {
+                                        Debug.LogError("Invalid parsing of game number, defaulting to game 1.");
+                                        _game_nr = 1;
+                                    }
+                                    break;
+
+                                case "use_connection":
+                                    if (arg_value.ToLower().Contains("true"))
+                                        _use_connection = true;
+                                    else
+                                        _use_connection = false;
+                                    break;
+
+                                case "connection_mode":
+                                    _connection_mode = arg_value;
+                                    break;
+
+                                case "connection_ip":
+                                    _connection_ip = arg_value;
+                                    break;
+
+                                case "connection_port":
+                                    correct_parse = Int32.TryParse(arg_value, out _connection_port);
+                                    if (!correct_parse) {
+                                        _connection_port = 9090;
+                                        Debug.Log("Invalid or impossible to parse port value, setting to default value.");
+                                    }
+                                    break;
+
+                                case "ros_topic_pub":
+                                    _ros_pub_topic = arg_value;
+                                    break;
 
                                 case "ros_topic_sub":
-                                break;
-
-                                case "topic_type":
-								break;
-
-                                case "on_experiment":
-                                break;
+                                    _ros_sub_topic = arg_value;
+                                    break;
 
                                 default:
-                                Debug.Log ("Unrecognized input argument: " + words[0]);
-                                break;
-                                    
-							}
+                                    Debug.Log("Unrecognized input argument: " + arg);
+                                    break;
+
+                            }
 
 						}
 
@@ -540,17 +647,35 @@ namespace Tangram{
 			#if UNITY_EDITOR
 			UnityEditor.EditorApplication.isPlaying = false;
             OnQuit ( );
-			#else
-			Application.Quit();
-			#endif
-		}
+            #else
+            Application.Quit();
+            #endif
+        }
 
-		void OnQuit(){
-			//_ros_bridge.close_connection ();
-            /*_robot_connection.close_socket ( );
-            if (_logger != null)
-                _logger.close_logger ( );*/
-		}
+        void OnApplicationQuit() {
+            OnQuit();
+        }
+        
+        void OnQuit(){
+            if (_use_connection) { 
+                switch (_connection_mode) {
+                    case "ros":
+                        Debug.Log("Closing Connection with ROS");
+                        if(_robot_connection != null) { 
+                            ((Networking.ROSConnection)_robot_connection).close_connection();
+                            _robot_connection = null;
+                        }
+                        break;
+                    case "thalamus":
+                        break;
+                    default:
+                        break;
+                }
+            }
+
+            if (_instance != null)
+                _instance = null;
+        }
 
 		public void change_scene(){
             try { 
@@ -717,5 +842,10 @@ namespace Tangram{
         public void set_game_started(bool started) {
             _game_started = started;
         }
-	}
+
+        public void set_response_game_started(bool response) {
+            _response_game_started = response;
+        }
+
+    }
 }

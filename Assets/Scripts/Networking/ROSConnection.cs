@@ -379,9 +379,10 @@ namespace Tangram.Networking {
                 _subscribing_topics.Clear();
                 _sub_topics_type.Clear();
                 Debug.Log("Disconnecting from ROS Bridge");
-                while (_bridge_connection.Connected)
-                    _bridge_connection.Disconnect(false);
-                _bridge_connection.Close();
+                _bridge_connection.Shutdown(SocketShutdown.Both);
+                //while (_bridge_connection.Connected)
+                _bridge_connection.Disconnect(false);
+                //_bridge_connection.Close();
                 Debug.Log("Disconnected from ROS");
             } catch (Exception e) {
                 Debug.LogError("Caught an exception while closing ROS Bridge connection: " + e.Message);
@@ -392,6 +393,8 @@ namespace Tangram.Networking {
             GameManager.Instance.set_can_play(true);
             if (_triggering_event.Contains("game") && _triggering_event.Contains("begun"))
                 GameManager.Instance.set_game_started(true);
+            else if (_triggering_event.Contains("game") && _triggering_event.Contains("ready"))
+                GameManager.Instance.set_response_game_started(true);
         }
         
         public void game_ready(string child_name, int game_number) {
